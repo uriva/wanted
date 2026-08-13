@@ -87,7 +87,10 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
           <label className="text-xs font-semibold text-slate-400 block">
             Original Post Text (Source Language)
           </label>
-          <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+          <div
+            dir="auto"
+            className="p-4 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-200 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto hebrew-text"
+          >
             {intent.originalText}
           </div>
         </div>
