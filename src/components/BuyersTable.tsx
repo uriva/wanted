@@ -49,7 +49,6 @@ function formatRelativeTime(timestamp: number): string {
 
 export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [platformFilter, setPlatformFilter] = useState("all");
 
   // Deduplicate items by originalText or externalPostId
   const seenKeys = new Set<string>();
@@ -62,14 +61,10 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
 
   const filteredIntents = uniqueIntents.filter((item) => {
     const text = item.originalText || item.title || "";
-    const matchesSearch =
+    return (
       text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.buyer?.name || "").toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesPlatform =
-      platformFilter === "all" || item.platform.toLowerCase() === platformFilter.toLowerCase();
-
-    return matchesSearch && matchesPlatform;
+      (item.buyer?.name || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
   });
 
   const getPlatformBadge = (platform: string) => {
@@ -82,37 +77,17 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
-      {/* Search & Filter Header */}
+      {/* Search Header */}
       <div className="p-4 border-b border-zinc-800 bg-black/40">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Search Box */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Search buyers, demand keywords, or names..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-1.5 bg-black border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-all"
-            />
-          </div>
-
-          {/* Social Network Source Filter */}
-          <div className="flex bg-black p-1 rounded-lg border border-zinc-800 text-xs">
-            {["all", "facebook", "reddit", "twitter", "whatsapp"].map((p) => (
-              <button
-                key={p}
-                onClick={() => setPlatformFilter(p)}
-                className={`px-3 py-1 rounded capitalize font-medium text-xs transition-all ${
-                  platformFilter === p
-                    ? "bg-white text-black font-bold shadow"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                {p === "twitter" ? "X/Twitter" : p}
-              </button>
-            ))}
-          </div>
+        <div className="relative max-w-md">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <input
+            type="text"
+            placeholder="Search buyers, demand keywords, or names..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-1.5 bg-black border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-all"
+          />
         </div>
       </div>
 
