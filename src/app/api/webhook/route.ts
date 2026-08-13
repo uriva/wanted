@@ -3,13 +3,13 @@ import { adminDb } from "@/lib/adminDb";
 import { id } from "@instantdb/admin";
 import { analyzePostForBuyerIntent } from "@/lib/intentClassifier";
 
-// Keywords that identify a relevant WhatsApp group/channel
+// Exact full-word keywords that identify a relevant WhatsApp tech/business/automation group
 const RELEVANT_GROUP_KEYWORDS = [
   "automation", "אוטומציה", "ai", "בינה מלאכותית", "dev", "פיתוח", "software", "תוכנה",
   "tech", "טכנולוגיה", "code", "קודינג", "freelance", "פרילנס", "business", "עסקים",
-  "marketing", "שיווק", "hiring", "דרושים", "leads", "לידים", "mcp", "n8n", "make",
+  "marketing", "שיווק", "hiring", "דרושים", "mcp", "n8n", "make",
   "bot", "בוט", "claude", "קלוד", "openclaw", "vibe coding", "buyers", "wanted",
-  "opportunity", "פרויקטים", "משרות", "עבודות", "הזדמנויות", "startups", "סטארטאפ"
+  "startups", "סטארטאפ"
 ];
 
 function isRelevantGroup(chatId: string, groupTitle: string): boolean {
@@ -21,7 +21,11 @@ function isRelevantGroup(chatId: string, groupTitle: string): boolean {
   if (!groupTitle) return false;
 
   const lowerTitle = groupTitle.toLowerCase();
-  return RELEVANT_GROUP_KEYWORDS.some((kw) => lowerTitle.includes(kw.toLowerCase()));
+  // Check exact word or explicit keyword match
+  return RELEVANT_GROUP_KEYWORDS.some((kw) => {
+    const regex = new RegExp(`(?:^|\\s|_|-|\\|)${kw.toLowerCase()}(?:$|\\s|_|-|\\|)`, "i");
+    return regex.test(lowerTitle) || lowerTitle.includes(kw.toLowerCase());
+  });
 }
 
 export async function POST(req: Request) {
