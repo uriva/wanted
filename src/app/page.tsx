@@ -107,12 +107,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
       {/* Navigation Header */}
-      <Header
-        onScanAll={handleScanAll}
-        onSeed={handleSeed}
-        isScanning={isScanning}
-        isSeeding={isSeeding}
-      />
+      <Header />
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -150,7 +145,7 @@ export default function HomePage() {
             }`}
           >
             <Radio className="w-4 h-4" />
-            <span>Monitored Sources & Adaptive Scheduler</span>
+            <span>Monitored Sources</span>
             <span className="px-2 py-0.5 text-[10px] bg-slate-800 text-slate-300 rounded-full">
               {sources.length}
             </span>
