@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, ExternalLink, Filter, Sparkles, AlertCircle, Clock, Tag, MessageSquare, ArrowUpRight } from "lucide-react";
+import { Search, ExternalLink, AlertCircle, Clock, ArrowUpRight } from "lucide-react";
 
 interface IntentItem {
   id: string;
@@ -36,7 +36,6 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
   const [searchTerm, setSearchTerm] = useState("");
   const [platformFilter, setPlatformFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [intentTypeFilter, setIntentTypeFilter] = useState("all");
 
   // Deduplicate items by originalText or externalPostId
   const seenKeys = new Set<string>();
@@ -60,10 +59,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
     const matchesCategory =
       categoryFilter === "all" || item.category.toLowerCase() === categoryFilter.toLowerCase();
 
-    const matchesIntentType =
-      intentTypeFilter === "all" || item.intentType.toLowerCase() === intentTypeFilter.toLowerCase();
-
-    return matchesSearch && matchesPlatform && matchesCategory && matchesIntentType;
+    return matchesSearch && matchesPlatform && matchesCategory;
   });
 
   const getPlatformBadge = (platform: string) => {
@@ -92,13 +88,6 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
       default:
         return <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded">Buying</span>;
     }
-  };
-
-  const getUrgencyBadge = (urgency?: string) => {
-    if (urgency === "high") {
-      return <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded">High Urgency</span>;
-    }
-    return <span className="px-2 py-0.5 text-[10px] text-slate-400 bg-slate-800 border border-slate-700 rounded">Standard</span>;
   };
 
   return (
@@ -163,7 +152,6 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
               <th className="py-3.5 px-4 sm:px-6">Buyer & Profile</th>
               <th className="py-3.5 px-4 sm:px-6">What They Want (English Demand)</th>
               <th className="py-3.5 px-4 sm:px-6">Category & Type</th>
-              <th className="py-3.5 px-4 sm:px-6">Budget / Urgency</th>
               <th className="py-3.5 px-4 sm:px-6">Posted Date</th>
               <th className="py-3.5 px-4 sm:px-6 text-right">Action</th>
             </tr>
@@ -171,13 +159,10 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
           <tbody className="divide-y divide-slate-800/60 text-sm">
             {filteredIntents.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-500">
+                <td colSpan={5} className="py-12 text-center text-slate-500">
                   <div className="max-w-sm mx-auto flex flex-col items-center">
                     <AlertCircle className="w-8 h-8 text-slate-600 mb-2" />
                     <p className="font-medium text-slate-400">No matching buyers found</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Try clearing search filters or click "Scan All Sources Now" above to fetch latest posts.
-                    </p>
                   </div>
                 </td>
               </tr>
@@ -244,16 +229,6 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
                         {item.category}
                       </span>
                       <div>{getIntentTypeBadge(item.intentType)}</div>
-                    </div>
-                  </td>
-
-                  {/* Budget & Urgency */}
-                  <td className="py-4 px-4 sm:px-6">
-                    <div className="flex flex-col space-y-1">
-                      <span className="text-xs font-semibold text-amber-300">
-                        {item.budget || "Flexible / Unspecified"}
-                      </span>
-                      <div>{getUrgencyBadge(item.urgency)}</div>
                     </div>
                   </td>
 

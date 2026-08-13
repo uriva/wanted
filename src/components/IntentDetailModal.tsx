@@ -58,7 +58,7 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
         </div>
 
         {/* Metadata Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 text-xs">
+        <div className="grid grid-cols-3 gap-3 mt-4 text-xs">
           <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
             <span className="text-[10px] uppercase font-semibold text-slate-500 block">Category</span>
             <span className="font-bold text-slate-200 mt-0.5 block">{intent.category}</span>
@@ -67,11 +67,6 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
           <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
             <span className="text-[10px] uppercase font-semibold text-slate-500 block">Intent Type</span>
             <span className="font-bold text-indigo-300 mt-0.5 block capitalize">{intent.intentType}</span>
-          </div>
-
-          <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
-            <span className="text-[10px] uppercase font-semibold text-slate-500 block">Budget</span>
-            <span className="font-bold text-amber-300 mt-0.5 block">{intent.budget || "Unspecified"}</span>
           </div>
 
           <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
