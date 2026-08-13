@@ -214,6 +214,7 @@ export default function SourceScheduler({
               </tr>
             ) : (
               sortedSources.map((source) => {
+                const isWa = source.platform === "whatsapp";
                 const isDue = Date.now() >= (source.nextScheduledScanAt || 0);
                 return (
                   <tr
@@ -258,15 +259,21 @@ export default function SourceScheduler({
 
                     {/* Next Poll */}
                     <td className="py-3.5 px-4 sm:px-6 font-mono whitespace-nowrap text-right">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${
-                          isDue
-                            ? "bg-black dark:bg-white text-white dark:text-black"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
-                        }`}
-                      >
-                        {formatNextPollTime(source.nextScheduledScanAt)}
-                      </span>
+                      {isWa ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60">
+                          Webhook (Live)
+                        </span>
+                      ) : (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${
+                            isDue
+                              ? "bg-black dark:bg-white text-white dark:text-black"
+                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
+                          }`}
+                        >
+                          {formatNextPollTime(source.nextScheduledScanAt)}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
