@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, Radio, ArrowRight, RefreshCw } from "lucide-react";
+import { Clock } from "lucide-react";
 
 interface SourceItem {
   id: string;
@@ -64,11 +64,11 @@ export default function ScanStatusBar({ sources }: ScanStatusBarProps) {
   }
 
   return (
-    <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3.5 mb-6 text-xs text-zinc-800 dark:text-zinc-200 font-mono transition-colors">
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3.5 mb-6 text-xs text-zinc-800 dark:text-zinc-200 font-mono shadow-sm transition-colors">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Last Scanned Group */}
         <div className="flex items-center space-x-2.5">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+          <div className="w-2 h-2 rounded-full bg-zinc-800 dark:bg-zinc-200 animate-pulse"></div>
           <span className="text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[10px]">
             LAST SCANNED:
           </span>
@@ -81,7 +81,7 @@ export default function ScanStatusBar({ sources }: ScanStatusBarProps) {
         </div>
 
         {/* Divider */}
-        <div className="hidden sm:block h-4 w-[1px] bg-zinc-300 dark:bg-zinc-700"></div>
+        <div className="hidden sm:block h-4 w-[1px] bg-zinc-200 dark:bg-zinc-800"></div>
 
         {/* Next Group Due & Countdown Timer */}
         <div className="flex items-center space-x-2.5">

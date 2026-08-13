@@ -19,10 +19,10 @@ interface ScanLogsProps {
 
 export default function ScanLogs({ logs }: ScanLogsProps) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 shadow-sm text-zinc-900 dark:text-zinc-100">
       <div className="flex items-center space-x-2 mb-4">
-        <Activity className="w-4 h-4 text-zinc-300" />
-        <h2 className="text-base font-bold text-white">Scraper Activity Logs</h2>
+        <Activity className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
+        <h2 className="text-base font-bold text-zinc-900 dark:text-white">Scraper Activity Logs</h2>
       </div>
 
       <div className="space-y-2.5">
@@ -34,23 +34,23 @@ export default function ScanLogs({ logs }: ScanLogsProps) {
           logs.slice(0, 15).map((log) => (
             <div
               key={log.id}
-              className="p-3 bg-black border border-zinc-800 rounded-lg flex items-start justify-between text-xs font-mono"
+              className="p-3 bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-start justify-between text-xs font-mono"
             >
               <div className="flex items-start space-x-3">
                 {log.status === "success" ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400 mt-0.5 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 mt-0.5 shrink-0" />
                 ) : (
-                  <AlertCircle className="w-3.5 h-3.5 text-zinc-500 mt-0.5 shrink-0" />
+                  <AlertCircle className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 mt-0.5 shrink-0" />
                 )}
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="font-bold text-zinc-200 capitalize">[{log.platform}]</span>
-                    <span className="text-zinc-400">{log.message}</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200 capitalize">[{log.platform}]</span>
+                    <span className="text-zinc-600 dark:text-zinc-400">{log.message}</span>
                   </div>
                   <div className="flex items-center space-x-3 text-[11px] text-zinc-500 mt-1">
                     <span>Fetched: {log.postsFetched}</span>
                     <span>•</span>
-                    <span className="text-zinc-300">Intents: {log.intentsFound}</span>
+                    <span className="text-zinc-700 dark:text-zinc-300 font-semibold">Intents: {log.intentsFound}</span>
                     <span>•</span>
                     <span>Next: {log.nextScanInMinutes}m</span>
                   </div>
