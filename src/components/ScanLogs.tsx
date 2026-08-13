@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Activity, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface ScanLog {
   id: string;
@@ -19,48 +19,46 @@ interface ScanLogsProps {
 
 export default function ScanLogs({ logs }: ScanLogsProps) {
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-lg">
       <div className="flex items-center space-x-2 mb-4">
-        <Activity className="w-5 h-5 text-indigo-400" />
-        <h2 className="text-lg font-bold text-white">Scraper Activity & Scheduler Audit Log</h2>
+        <Activity className="w-4 h-4 text-zinc-300" />
+        <h2 className="text-base font-bold text-white">Scraper Activity Logs</h2>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {logs.length === 0 ? (
-          <p className="text-slate-500 text-xs py-8 text-center">
-            No scan logs recorded yet. Click "Scan All Sources Now" to run an initial scan.
+          <p className="text-zinc-500 text-xs py-8 text-center font-mono">
+            No scan logs recorded yet.
           </p>
         ) : (
           logs.slice(0, 15).map((log) => (
             <div
               key={log.id}
-              className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl flex items-start justify-between text-xs font-mono"
+              className="p-3 bg-black border border-zinc-800 rounded-lg flex items-start justify-between text-xs font-mono"
             >
               <div className="flex items-start space-x-3">
                 {log.status === "success" ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400 mt-0.5 shrink-0" />
                 ) : (
-                  <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
+                  <AlertCircle className="w-3.5 h-3.5 text-zinc-500 mt-0.5 shrink-0" />
                 )}
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="font-bold text-slate-200 capitalize">[{log.platform}]</span>
-                    <span className="text-slate-400">{log.message}</span>
+                    <span className="font-bold text-zinc-200 capitalize">[{log.platform}]</span>
+                    <span className="text-zinc-400">{log.message}</span>
                   </div>
-                  <div className="flex items-center space-x-3 text-[11px] text-slate-500 mt-1 font-sans">
-                    <span>Fetched: {log.postsFetched} posts</span>
+                  <div className="flex items-center space-x-3 text-[11px] text-zinc-500 mt-1">
+                    <span>Fetched: {log.postsFetched}</span>
                     <span>•</span>
-                    <span className="text-emerald-400 font-semibold">
-                      Discovered {log.intentsFound} buyer intents
-                    </span>
+                    <span className="text-zinc-300">Intents: {log.intentsFound}</span>
                     <span>•</span>
-                    <span className="text-amber-400">Next poll in {log.nextScanInMinutes}m</span>
+                    <span>Next: {log.nextScanInMinutes}m</span>
                   </div>
                 </div>
               </div>
 
-              <div className="text-right text-[11px] text-slate-500 shrink-0 font-sans">
-                {new Date(log.scrapedAt).toLocaleTimeString()}
+              <div className="text-right text-[11px] text-zinc-500 shrink-0">
+                {new Date(log.scrapedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
           ))
