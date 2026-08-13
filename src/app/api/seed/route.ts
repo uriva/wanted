@@ -58,56 +58,6 @@ export async function POST() {
       }
     }
 
-    // Add Reddit if not present
-    if (!existingExternalIds.has("freelance")) {
-      const redditSourceId = id();
-      newSourceIds.push(redditSourceId);
-      txs.push(
-        adminDb.tx.sources[redditSourceId].create({
-          platform: "reddit",
-          name: "r/freelance",
-          url: "https://www.reddit.com/r/freelance",
-          externalId: "freelance",
-          status: "active",
-          checkIntervalMinutes: 30,
-          minIntervalMinutes: 15,
-          maxIntervalMinutes: 1440,
-          decayMultiplier: 1.5,
-          consecutiveEmptyScrapes: 0,
-          lastScrapedAt: now,
-          nextScheduledScanAt: now,
-          totalPostsScanned: 0,
-          totalIntentsFound: 0,
-          createdAt: now,
-        })
-      );
-    }
-
-    // Add Twitter if not present
-    if (!existingExternalIds.has("hiring developer")) {
-      const twitterSourceId = id();
-      newSourceIds.push(twitterSourceId);
-      txs.push(
-        adminDb.tx.sources[twitterSourceId].create({
-          platform: "twitter",
-          name: "X/Twitter: #Hiring & WTB",
-          url: "https://x.com/search?q=hiring%20developer",
-          externalId: "hiring developer",
-          status: "active",
-          checkIntervalMinutes: 60,
-          minIntervalMinutes: 15,
-          maxIntervalMinutes: 1440,
-          decayMultiplier: 1.5,
-          consecutiveEmptyScrapes: 0,
-          lastScrapedAt: now,
-          nextScheduledScanAt: now,
-          totalPostsScanned: 0,
-          totalIntentsFound: 0,
-          createdAt: now,
-        })
-      );
-    }
-
     if (txs.length > 0) {
       await adminDb.transact(txs);
     }

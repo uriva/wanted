@@ -76,7 +76,7 @@ export default function SourceScheduler({
 
   const getPlatformBadge = (platform: string) => {
     return (
-      <span className="px-2 py-0.5 text-[10px] font-mono capitalize bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded">
+      <span className="px-2 py-0.5 text-[10px] font-normal capitalize bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded">
         {platform === "twitter" ? "X / Twitter" : platform}
       </span>
     );
@@ -94,7 +94,7 @@ export default function SourceScheduler({
               onClick={() => setPlatformFilter(p)}
               className={`px-3 py-1 rounded capitalize font-medium text-xs transition-all ${
                 platformFilter === p
-                  ? "bg-black dark:bg-white text-white dark:text-black font-bold shadow"
+                  ? "bg-black dark:bg-white text-white dark:text-black font-semibold shadow"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
               }`}
             >
@@ -116,7 +116,7 @@ export default function SourceScheduler({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-black/60 text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-black/60 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               <th className="py-3 px-4 sm:px-6">Channel / Group</th>
               <th className="py-3 px-4 sm:px-6 text-center">Posts Scanned</th>
               <th className="py-3 px-4 sm:px-6 text-center">Buyer Matches</th>
@@ -146,7 +146,10 @@ export default function SourceScheduler({
                       <div className="flex items-center space-x-3">
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs">
+                            <span
+                              dir="auto"
+                              className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs hebrew-text"
+                            >
                               {source.name}
                             </span>
                             <a
@@ -165,19 +168,19 @@ export default function SourceScheduler({
                     </td>
 
                     {/* Posts Scanned */}
-                    <td className="py-3.5 px-4 sm:px-6 text-center font-mono font-semibold text-zinc-700 dark:text-zinc-300">
+                    <td className="py-3.5 px-4 sm:px-6 text-center font-mono font-medium text-zinc-700 dark:text-zinc-300">
                       {source.totalPostsScanned || 0}
                     </td>
 
                     {/* Buyer Matches */}
-                    <td className="py-3.5 px-4 sm:px-6 text-center font-mono font-bold text-black dark:text-white">
+                    <td className="py-3.5 px-4 sm:px-6 text-center font-mono font-semibold text-black dark:text-white">
                       {source.totalIntentsFound || 0}
                     </td>
 
                     {/* Next Poll */}
                     <td className="py-3.5 px-4 sm:px-6 font-mono whitespace-nowrap text-right">
                       <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                        className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${
                           isDue
                             ? "bg-black dark:bg-white text-white dark:text-black"
                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
@@ -259,7 +262,7 @@ export default function SourceScheduler({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black font-bold rounded-lg"
+                  className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black font-semibold rounded-lg"
                 >
                   Add
                 </button>

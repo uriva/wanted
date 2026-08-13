@@ -64,18 +64,18 @@ export default function ScanStatusBar({ sources }: ScanStatusBarProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3.5 mb-6 text-xs text-zinc-800 dark:text-zinc-200 font-mono shadow-sm transition-colors">
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3.5 mb-6 text-xs text-zinc-800 dark:text-zinc-200 font-sans shadow-sm transition-colors">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Last Scanned Group */}
         <div className="flex items-center space-x-2.5">
-          <div className="w-2 h-2 rounded-full bg-zinc-800 dark:bg-zinc-200 animate-pulse"></div>
-          <span className="text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[10px]">
+          <div className="w-2 h-2 rounded-full bg-zinc-800 dark:bg-zinc-200 animate-pulse shrink-0"></div>
+          <span className="text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[10px] font-mono">
             LAST SCANNED:
           </span>
-          <span className="font-bold text-black dark:text-white truncate max-w-[220px]">
+          <span className="font-semibold text-black dark:text-white truncate max-w-[220px] hebrew-text" dir="auto">
             {lastScanned?.name || "None"}
           </span>
-          <span className="text-zinc-400 dark:text-zinc-500">
+          <span className="text-zinc-400 dark:text-zinc-500 font-mono text-[11px]">
             ({formatRelativeAgo(lastScanned?.lastScrapedAt)})
           </span>
         </div>
@@ -85,14 +85,14 @@ export default function ScanStatusBar({ sources }: ScanStatusBarProps) {
 
         {/* Next Group Due & Countdown Timer */}
         <div className="flex items-center space-x-2.5">
-          <Clock className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[10px]">
+          <Clock className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+          <span className="text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[10px] font-mono">
             NEXT SCAN:
           </span>
-          <span className="font-bold text-black dark:text-white truncate max-w-[220px]">
+          <span className="font-semibold text-black dark:text-white truncate max-w-[220px] hebrew-text" dir="auto">
             {nextScheduled?.name || "None"}
           </span>
-          <span className="px-2 py-0.5 text-[10px] font-bold bg-black dark:bg-white text-white dark:text-black rounded">
+          <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-black dark:bg-white text-white dark:text-black rounded">
             {countdownText}
           </span>
         </div>
