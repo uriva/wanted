@@ -12,6 +12,7 @@
     "@instantdb/admin": "^1.0.65",
     "@instantdb/react": "^1.0.65",
     "@upstash/redis": "^1.38.2",
+    "@uri/ai-utils": "npm:@jsr/uri__ai-utils@^0.1.524",
     "clsx": "^2.1.1",
     "lucide-react": "^1.31.0",
     "next": "16.3.0",

@@ -1,3 +1,7 @@
+import { genJson, injectGeminiToken, z } from "@uri/ai-utils";
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+
 export interface IntentAnalysisResult {
   isBuyerIntent: boolean;
   confidenceScore: number; // 0.0 - 1.0
@@ -11,72 +15,60 @@ export interface IntentAnalysisResult {
   matchedKeywords: string[];
 }
 
-// Strong buyer signals (multilingual)
-const BUYER_KEYWORDS = [
-  // Hebrew buyer phrases
-  "מחפש", "מחפשת", "מחפשים", "מחפשות", "דרוש", "דרושה", "דרושים", "מעוניין", "מעוניינת", "מעוניינים",
-  "צריך", "צריכה", "צריכים", "רוצה לקנות", "מחפש לבנות", "מחפשת לבנות", "מחפש מנהלים", "מחפש מערכת",
-  "מחפש פרילנסר", "מחפש מתכנת", "מחפש מעצב", "מישהו מכיר", "אשמח להמלצה", "אשמח להצעות", "הצעת מחיר",
-  // English buyer phrases
-  "looking for", "looking to buy", "looking to hire", "wtb", "in search of", "iso", "in need of",
-  "want to purchase", "hiring", "need help with", "looking for a", "seeking a", "anyone selling",
-  "recommendation for", "who can build", "need a developer", "need a designer", "budget is"
-];
+const buyerIntentSchema = z.object({
+  isBuyerIntent: z.boolean().describe("True ONLY if the post expresses a clear buy, hire, build, or service request intent from a buyer or client seeking help/services/products"),
+  confidenceScore: z.number().describe("Confidence score between 0.0 and 1.0"),
+  category: z.enum(['Software & AI', 'Design & Marketing', 'Services', 'E-commerce', 'Consulting', 'Other']),
+  summary: z.string().describe("Concise 1-2 sentence summary of what the buyer wants in the original language"),
+});
 
-// Exclusion phrases (seller or job seeker announcements, not buyer requests)
-const SELLER_EXCLUSIONS = [
-  "מציע שירותי", "אני מציע", "מוכר", "למכירה", "אני פרילנסר", "מוזמנים ליצור קשר",
-  "for sale", "i offer", "selling my", "offering services", "available for hire", "freelance available"
-];
+const geminiClassifier = genJson(
+  { provider: "google", mini: true },
+  "You are an expert AI classifier that determines whether a social media post expresses BUYER INTENT (e.g. looking to purchase, hire a developer/freelancer, build software, request a service, or find a vendor). Seller announcements, promotional ads, job-seeker posts, or general news should be marked isBuyerIntent = false.",
+  buyerIntentSchema
+);
 
-export function analyzePostForBuyerIntent(text: string): IntentAnalysisResult {
-  const lowerText = text.toLowerCase();
-  
-  // Check exclusions first
-  let exclusionScore = 0;
-  for (const exc of SELLER_EXCLUSIONS) {
-    if (lowerText.includes(exc.toLowerCase())) {
-      exclusionScore += 0.4;
-    }
-  }
-
-  // Match buyer keywords
-  const matchedKeywords: string[] = [];
-  let keywordScore = 0;
-
-  for (const kw of BUYER_KEYWORDS) {
-    if (lowerText.includes(kw.toLowerCase())) {
-      matchedKeywords.push(kw);
-      keywordScore += 0.25;
-    }
-  }
-
-  // Cap base score
-  let baseScore = Math.min(0.95, keywordScore) - exclusionScore;
-  if (baseScore < 0) baseScore = 0;
-
-  // Question mark or request indicator boost
-  if (text.includes("?") || text.includes("🙏") || text.includes("😃") || text.includes("אשמח")) {
-    baseScore += 0.1;
-  }
-
-  const confidenceScore = Math.min(0.99, Math.max(0.05, Math.round(baseScore * 100) / 100));
-  const isBuyerIntent = confidenceScore >= 0.35 && matchedKeywords.length > 0;
-
-  // Derive title and summary directly from original text (no translation)
+export async function analyzePostForBuyerIntent(text: string): Promise<IntentAnalysisResult> {
   const clean = text.replace(/[\n\r]+/g, " ").trim();
   const title = clean.length > 80 ? clean.substring(0, 75) + "..." : clean;
-  const summary = clean.length > 200 ? clean.substring(0, 200) + "..." : clean;
 
-  return {
-    isBuyerIntent,
-    confidenceScore,
-    intentType: 'buy',
-    category: 'Software & AI',
-    titleEn: title,
-    summaryEn: summary,
-    translatedTextEn: text,
-    urgency: 'medium',
-    matchedKeywords
-  };
+  try {
+    const key = GEMINI_API_KEY;
+    if (!key) {
+      throw new Error("GEMINI_API_KEY not configured");
+    }
+    const run = injectGeminiToken(key)(() => geminiClassifier(text));
+    const res = await run();
+
+    return {
+      isBuyerIntent: Boolean(res.isBuyerIntent),
+      confidenceScore: res.confidenceScore ?? (res.isBuyerIntent ? 0.95 : 0.1),
+      intentType: "buy",
+      category: res.category || "Software & AI",
+      titleEn: title,
+      summaryEn: res.summary || clean,
+      translatedTextEn: text,
+      urgency: "medium",
+      matchedKeywords: ["gemini-ai"],
+    };
+  } catch (err) {
+    console.error("Gemini classification error, using fallback:", err);
+
+    // Heuristic fallback if Gemini fails/times out
+    const lowerText = text.toLowerCase();
+    const isBuyer = /מחפש|מחפשת|דרוש|דרושה|מעוניין|צריך|looking for|wtb|hiring|need/i.test(lowerText) &&
+      !/מציע שירותי|אני מציע|מוכר|for sale|i offer/i.test(lowerText);
+
+    return {
+      isBuyerIntent: isBuyer,
+      confidenceScore: isBuyer ? 0.8 : 0.1,
+      intentType: "buy",
+      category: "Software & AI",
+      titleEn: title,
+      summaryEn: clean,
+      translatedTextEn: text,
+      urgency: "medium",
+      matchedKeywords: ["fallback"],
+    };
+  }
 }

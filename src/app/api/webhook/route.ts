@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     }
 
     const now = Date.now();
-    const analysis = analyzePostForBuyerIntent(text);
+    const analysis = await analyzePostForBuyerIntent(text);
 
     if (!analysis.isBuyerIntent) {
       return NextResponse.json({

@@ -140,7 +140,7 @@ export async function scanSource(sourceId: string) {
       continue;
     }
 
-    const analysis = analyzePostForBuyerIntent(post.originalText);
+    const analysis = await analyzePostForBuyerIntent(post.originalText);
 
     if (analysis.isBuyerIntent) {
       // Add to tracked sets to prevent duplicate in same batch
