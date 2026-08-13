@@ -35,9 +35,9 @@ export async function fetchPostsFromPlatform(
             const author = item.author || {};
             const pubTime = item.publishTime ? item.publishTime * 1000 : (item.creation_time ? new Date(item.creation_time).getTime() : Date.now());
             posts.push({
-              externalPostId: item.id || id(),
+              externalPostId: String(item.id || id()),
               authorName: author.name || author.short_name || "Facebook User",
-              authorExternalId: author.id || author.name || "fb_anon",
+              authorExternalId: String(author.id || author.name || "fb_anon"),
               authorProfileUrl: author.url || item.url || url,
               authorAvatarUrl: item.image || undefined,
               postUrl: item.url || item.permalink || url,
@@ -61,9 +61,9 @@ export async function fetchPostsFromPlatform(
             const pubTime = item.created_utc ? item.created_utc * 1000 : Date.now();
             const authorName = item.author || "Reddit User";
             posts.push({
-              externalPostId: item.id || id(),
+              externalPostId: String(item.id || id()),
               authorName: authorName.startsWith("u/") ? authorName : `u/${authorName}`,
-              authorExternalId: item.author || "reddit_anon",
+              authorExternalId: String(item.author || "reddit_anon"),
               authorProfileUrl: `https://reddit.com/user/${item.author}`,
               postUrl: item.url || `https://reddit.com${item.permalink}`,
               originalText: `${item.title || ""}\n\n${item.selftext || ""}`.trim(),
@@ -85,9 +85,9 @@ export async function fetchPostsFromPlatform(
           for (const item of tweets) {
             const author = item.user || item.author || {};
             posts.push({
-              externalPostId: item.id || id(),
+              externalPostId: String(item.id || id()),
               authorName: author.name || author.screen_name || "X User",
-              authorExternalId: author.id_str || author.screen_name || "x_anon",
+              authorExternalId: String(author.id_str || author.screen_name || "x_anon"),
               authorProfileUrl: author.screen_name ? `https://x.com/${author.screen_name}` : "https://x.com",
               authorAvatarUrl: author.profile_image_url_https,
               postUrl: item.url || `https://x.com/i/status/${item.id}`,
@@ -106,16 +106,23 @@ export async function fetchPostsFromPlatform(
 }
 
 export async function scanSource(sourceId: string) {
-  // Query source from InstantDB
-  const { sources, buyers } = await adminDb.query({
+  // Query source, buyers, and existing intents from InstantDB for strict deduplication
+  const { sources, buyers, intents } = await adminDb.query({
     sources: { $: { where: { id: sourceId } } },
     buyers: {},
+    intents: {},
   });
 
   const source = sources[0];
   if (!source) {
     throw new Error(`Source not found with ID: ${sourceId}`);
   }
+
+  // Create sets of existing post IDs and original text for fast deduplication
+  const existingPostIds = new Set(intents.map((i) => i.externalPostId));
+  const existingTextHashes = new Set(
+    intents.map((i) => (i.originalText || "").trim().toLowerCase())
+  );
 
   const rawPosts = await fetchPostsFromPlatform(source.platform, source.url, source.externalId);
   const now = Date.now();
@@ -126,9 +133,20 @@ export async function scanSource(sourceId: string) {
   for (const post of rawPosts) {
     if (!post.originalText || post.originalText.trim().length < 5) continue;
 
+    // Strict Deduplication Check: Skip if externalPostId or identical post text already exists
+    const normalizedText = post.originalText.trim().toLowerCase();
+    if (existingPostIds.has(post.externalPostId) || existingTextHashes.has(normalizedText)) {
+      console.log(`Skipping duplicate post ID: ${post.externalPostId}`);
+      continue;
+    }
+
     const analysis = analyzePostForBuyerIntent(post.originalText);
 
     if (analysis.isBuyerIntent) {
+      // Add to tracked sets to prevent duplicate in same batch
+      existingPostIds.add(post.externalPostId);
+      existingTextHashes.add(normalizedText);
+
       // Find or generate buyer
       let buyerId: string;
       const existingBuyer = buyers.find(
@@ -202,7 +220,7 @@ export async function scanSource(sourceId: string) {
     consecutiveEmptyScrapes = 0;
     checkIntervalMinutes = minInterval;
   } else {
-    // Apply exponential decay if no buyer intent posts were found
+    // Apply exponential decay if no new buyer intent posts were found
     consecutiveEmptyScrapes += 1;
     checkIntervalMinutes = Math.min(
       maxInterval,
@@ -238,12 +256,14 @@ export async function scanSource(sourceId: string) {
         intentsFound: newIntentsFound,
         nextScanInMinutes: checkIntervalMinutes,
         status: "success",
-        message: `Scanned ${rawPosts.length} posts, found ${newIntentsFound} buyer intents. Next scan in ${checkIntervalMinutes} min.`,
+        message: `Scanned ${rawPosts.length} posts, found ${newIntentsFound} new buyer intents. Next scan in ${checkIntervalMinutes} min.`,
       })
       .link({ source: sourceId })
   );
 
-  await adminDb.transact(txs);
+  if (txs.length > 0) {
+    await adminDb.transact(txs);
+  }
 
   return {
     sourceId,

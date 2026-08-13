@@ -5,6 +5,7 @@ import { Search, ExternalLink, Filter, Sparkles, AlertCircle, Clock, Tag, Messag
 
 interface IntentItem {
   id: string;
+  externalPostId?: string;
   title: string;
   summary: string;
   originalText: string;
@@ -37,7 +38,16 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [intentTypeFilter, setIntentTypeFilter] = useState("all");
 
-  const filteredIntents = intents.filter((item) => {
+  // Deduplicate items by originalText or externalPostId
+  const seenKeys = new Set<string>();
+  const uniqueIntents = intents.filter((item) => {
+    const key = item.externalPostId || (item.originalText || "").trim().toLowerCase();
+    if (seenKeys.has(key)) return false;
+    seenKeys.add(key);
+    return true;
+  });
+
+  const filteredIntents = uniqueIntents.filter((item) => {
     const matchesSearch =
       item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
