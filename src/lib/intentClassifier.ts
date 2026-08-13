@@ -4,7 +4,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
 export interface IntentAnalysisResult {
   isBuyerIntent: boolean;
-  confidenceScore: number; // 0.0 - 1.0
+  confidenceScore: number;
   intentType: 'buy' | 'hire' | 'service_request' | 'partner' | 'custom_build';
   category: 'Software & AI' | 'Design & Marketing' | 'Services' | 'E-commerce' | 'Consulting' | 'Other';
   titleEn: string;
@@ -16,15 +16,14 @@ export interface IntentAnalysisResult {
 }
 
 const buyerIntentSchema = z.object({
-  isBuyerIntent: z.boolean().describe("True ONLY if the post expresses a clear buy, hire, build, or service request intent from a buyer or client seeking help/services/products"),
+  isBuyerIntent: z.boolean().describe("Set to true ONLY if the author is actively seeking to hire, buy, pay for a service, build software, or find a vendor/freelancer. Set to false for discussions, showcases, opinion posts, job seekers, or promotions."),
   confidenceScore: z.number().describe("Confidence score between 0.0 and 1.0"),
-  category: z.enum(['Software & AI', 'Design & Marketing', 'Services', 'E-commerce', 'Consulting', 'Other']),
-  summary: z.string().describe("Concise 1-2 sentence summary of what the buyer wants in the original language"),
+  summary: z.string().describe("Short 1 sentence summary of the request"),
 });
 
 const geminiClassifier = genJson(
   { provider: "google", mini: true },
-  "You are an expert AI classifier that determines whether a social media post expresses BUYER INTENT (e.g. looking to purchase, hire a developer/freelancer, build software, request a service, or find a vendor). Seller announcements, promotional ads, job-seeker posts, or general news should be marked isBuyerIntent = false.",
+  "Strict Buyer Intent Classifier: Evaluate if a social media post represents a buyer or client seeking to hire, buy, or pay for a service. MANDATORY RULE: If a post is sharing personal thoughts, opinions, tutorial content, vibe coding reflections, self-promotions, or general questions, output isBuyerIntent = false.",
   buyerIntentSchema
 );
 
@@ -44,7 +43,7 @@ export async function analyzePostForBuyerIntent(text: string): Promise<IntentAna
       isBuyerIntent: Boolean(res.isBuyerIntent),
       confidenceScore: res.confidenceScore ?? (res.isBuyerIntent ? 0.95 : 0.1),
       intentType: "buy",
-      category: res.category || "Software & AI",
+      category: "Software & AI",
       titleEn: title,
       summaryEn: res.summary || clean,
       translatedTextEn: text,
@@ -54,10 +53,10 @@ export async function analyzePostForBuyerIntent(text: string): Promise<IntentAna
   } catch (err) {
     console.error("Gemini classification error, using fallback:", err);
 
-    // Heuristic fallback if Gemini fails/times out
+    // Heuristic fallback
     const lowerText = text.toLowerCase();
     const isBuyer = /מחפש|מחפשת|דרוש|דרושה|מעוניין|צריך|looking for|wtb|hiring|need/i.test(lowerText) &&
-      !/מציע שירותי|אני מציע|מוכר|for sale|i offer/i.test(lowerText);
+      !/מציע שירותי|אני מציע|מוכר|for sale|i offer|משהו מאוד מספק|ויב קודינג|vibe coding/i.test(lowerText);
 
     return {
       isBuyerIntent: isBuyer,

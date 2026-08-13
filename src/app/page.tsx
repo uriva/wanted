@@ -4,22 +4,18 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/clientDb";
 import { id } from "@instantdb/react";
 import Header from "@/components/Header";
-import MetricsOverview from "@/components/MetricsOverview";
 import BuyersTable from "@/components/BuyersTable";
 import SourceScheduler from "@/components/SourceScheduler";
 import ScanLogs from "@/components/ScanLogs";
-import WebhookSimulator from "@/components/WebhookSimulator";
 import IntentDetailModal from "@/components/IntentDetailModal";
-import { ShoppingBag, Radio, Activity, Sparkles, RefreshCw } from "lucide-react";
+import { ShoppingBag, Radio, Activity, RefreshCw } from "lucide-react";
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<"marketplace" | "sources" | "logs" | "webhook">("marketplace");
+  const [activeTab, setActiveTab] = useState<"marketplace" | "sources" | "logs">("marketplace");
   const [selectedIntent, setSelectedIntent] = useState<any>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
 
   // Subscribe to InstantDB real-time state
-  const { isLoading, error, data } = db.useQuery({
+  const { isLoading, data } = db.useQuery({
     sources: {},
     buyers: {},
     intents: {
@@ -40,28 +36,10 @@ export default function HomePage() {
   }, [isLoading, data]);
 
   const handleSeed = async () => {
-    setIsSeeding(true);
     try {
       await fetch("/api/seed", { method: "POST" });
     } catch (err) {
       console.error("Seed error:", err);
-    } finally {
-      setIsSeeding(false);
-    }
-  };
-
-  const handleScanAll = async () => {
-    setIsScanning(true);
-    try {
-      await fetch("/api/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ forceAll: true }),
-      });
-    } catch (err) {
-      console.error("Scan error:", err);
-    } finally {
-      setIsScanning(false);
     }
   };
 
@@ -95,92 +73,66 @@ export default function HomePage() {
   };
 
   const sources = data?.sources || [];
-  const buyers = data?.buyers || [];
   const intents = data?.intents || [];
   const logs = data?.scan_logs || [];
 
-  const avgInterval =
-    sources.length > 0
-      ? Math.round(sources.reduce((acc, s) => acc + (s.checkIntervalMinutes || 15), 0) / sources.length)
-      : 15;
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
-      {/* Navigation Header */}
+    <div className="min-h-screen bg-black text-zinc-100 font-sans selection:bg-zinc-800 selection:text-white">
+      {/* Header */}
       <Header />
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Metrics Overview Bar */}
-        <MetricsOverview
-          totalBuyers={buyers.length}
-          totalIntents={intents.length}
-          activeSources={sources.length}
-          avgIntervalMinutes={avgInterval}
-        />
-
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* Tab Switcher */}
-        <div className="flex border-b border-slate-800 mb-6 space-x-1 sm:space-x-4 overflow-x-auto">
+        <div className="flex border-b border-zinc-800 mb-6 space-x-1 sm:space-x-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab("marketplace")}
-            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
+            className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
               activeTab === "marketplace"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-white text-white"
+                : "border-transparent text-zinc-400 hover:text-zinc-200"
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
             <span>Buyers & Demand Stream</span>
-            <span className="px-2 py-0.5 text-[10px] bg-indigo-500/10 text-indigo-400 rounded-full">
+            <span className="px-2 py-0.5 text-[10px] bg-zinc-800 text-zinc-300 rounded-full font-mono">
               {intents.length}
             </span>
           </button>
 
           <button
             onClick={() => setActiveTab("sources")}
-            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
+            className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
               activeTab === "sources"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-white text-white"
+                : "border-transparent text-zinc-400 hover:text-zinc-200"
             }`}
           >
             <Radio className="w-4 h-4" />
             <span>Monitored Sources</span>
-            <span className="px-2 py-0.5 text-[10px] bg-slate-800 text-slate-300 rounded-full">
+            <span className="px-2 py-0.5 text-[10px] bg-zinc-800 text-zinc-300 rounded-full font-mono">
               {sources.length}
             </span>
           </button>
 
           <button
             onClick={() => setActiveTab("logs")}
-            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
+            className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
               activeTab === "logs"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-white text-white"
+                : "border-transparent text-zinc-400 hover:text-zinc-200"
             }`}
           >
             <Activity className="w-4 h-4" />
             <span>Scan Logs</span>
           </button>
-
-          <button
-            onClick={() => setActiveTab("webhook")}
-            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
-              activeTab === "webhook"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <span>Inbound Lead Simulator</span>
-          </button>
         </div>
 
         {/* Tab View Contents */}
         {isLoading ? (
-          <div className="py-20 text-center text-slate-500 flex flex-col items-center justify-center space-y-3">
-            <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
-            <p className="text-sm font-medium">Connecting to InstantDB Realtime Stream...</p>
+          <div className="py-20 text-center text-zinc-500 flex flex-col items-center justify-center space-y-3">
+            <RefreshCw className="w-6 h-6 animate-spin text-zinc-400" />
+            <p className="text-xs font-medium text-zinc-400">Loading Realtime Stream...</p>
           </div>
         ) : (
           <>
@@ -197,10 +149,6 @@ export default function HomePage() {
             )}
 
             {activeTab === "logs" && <ScanLogs logs={logs as any} />}
-
-            {activeTab === "webhook" && (
-              <WebhookSimulator onPostSubmitted={() => setActiveTab("marketplace")} />
-            )}
           </>
         )}
       </main>
