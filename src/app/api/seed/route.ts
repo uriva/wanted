@@ -2,23 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/adminDb";
 import { id } from "@instantdb/admin";
 import { scanSource } from "@/lib/scannerEngine";
-
-// Verified scrapable groups fetched from Supergreen account
-const SUPERGREEN_SCRAPABLE_FB_GROUPS = [
-  { externalId: "talkingautomation", name: "מדברים אוטומציה", url: "https://www.facebook.com/groups/talkingautomation" },
-  { externalId: "aibusinesstools", name: "AI Agents | N8N | OpenClaw | Automation", url: "https://www.facebook.com/groups/aibusinesstools" },
-  { externalId: "cladue", name: "קלוד (Claude) - הקהילה הישראלית 🇮🇱", url: "https://www.facebook.com/groups/cladue" },
-  { externalId: "aisrael", name: "AI ISRAEL", url: "https://www.facebook.com/groups/aisrael" },
-  { externalId: "1266824747259615", name: "AI Agents Israel", url: "https://www.facebook.com/groups/1266824747259615" },
-  { externalId: "vibecodingai", name: "Vibe Coding", url: "https://www.facebook.com/groups/vibecodingai" },
-  { externalId: "1684554685829832", name: "Vibe Coding - Israel", url: "https://www.facebook.com/groups/1684554685829832" },
-  { externalId: "2753636021674871", name: "Claude Code & OpenClaw & Vibe Coding", url: "https://www.facebook.com/groups/2753636021674871" },
-  { externalId: "1427869272255595", name: "Best AI Agents Community", url: "https://www.facebook.com/groups/1427869272255595" },
-  { externalId: "aisaas", name: "Artificial Intelligence LLMs", url: "https://www.facebook.com/groups/aisaas" },
-  { externalId: "claudeaicommunity", name: "Claude Ai Community", url: "https://www.facebook.com/groups/claudeaicommunity" },
-  { externalId: "482067651607538", name: "אופק עסקי | אוטומציה ובינה מלאכותית", url: "https://www.facebook.com/groups/482067651607538" },
-  { externalId: "1657329921376731", name: "אוטומציה - עסקים אוטונומיים", url: "https://www.facebook.com/groups/1657329921376731" },
-];
+import { RELEVANT_FB_GROUPS } from "@/lib/relevantGroups";
 
 export async function POST() {
   try {
@@ -31,8 +15,8 @@ export async function POST() {
     const txs: any[] = [];
     const newSourceIds: string[] = [];
 
-    // Add all Supergreen scrapable FB groups if not already present
-    for (const group of SUPERGREEN_SCRAPABLE_FB_GROUPS) {
+    // Seed whitelisted Supergreen scrapable FB groups
+    for (const group of RELEVANT_FB_GROUPS) {
       if (!existingExternalIds.has(group.externalId)) {
         const sourceId = id();
         newSourceIds.push(sourceId);
