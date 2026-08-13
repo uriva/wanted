@@ -47,6 +47,31 @@ function formatRelativeTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
+function BuyerAvatar({ name, avatarUrl }: { name?: string; avatarUrl?: string }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = (name || "B")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 font-semibold text-xs shrink-0 overflow-hidden">
+      {avatarUrl && !imgError ? (
+        <img
+          src={avatarUrl}
+          alt={name || "Buyer"}
+          onError={() => setImgError(true)}
+          className="w-full h-full rounded-full object-cover"
+        />
+      ) : (
+        <span>{initials}</span>
+      )}
+    </div>
+  );
+}
+
 export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -121,17 +146,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
                   {/* Person Column */}
                   <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 font-semibold text-xs shrink-0">
-                        {item.buyer?.avatarUrl ? (
-                          <img
-                            src={item.buyer.avatarUrl}
-                            alt={item.buyer.name}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          (item.buyer?.name || "B").substring(0, 2).toUpperCase()
-                        )}
-                      </div>
+                      <BuyerAvatar name={item.buyer?.name} avatarUrl={item.buyer?.avatarUrl} />
                       <div>
                         <span className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-black dark:group-hover:text-white transition-colors block text-xs">
                           {item.buyer?.name || "Anonymous Buyer"}
