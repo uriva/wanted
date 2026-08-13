@@ -6,21 +6,55 @@ import { analyzePostForBuyerIntent } from "@/lib/intentClassifier";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const {
-      platform = "whatsapp",
-      text,
-      authorName = "Unknown User",
-      authorExternalId = "anon",
-      authorProfileUrl = "#",
-      postUrl = "#",
-      sourceName = "Inbound Webhook",
-    } = body;
 
-    if (!text || text.trim().length === 0) {
-      return NextResponse.json({ success: false, error: "Text is required" }, { status: 400 });
+    // Support Supergreen payload format as well as generic webhook format
+    let platform = body.network || body.platform || "whatsapp";
+    let text = body.text || "";
+    let authorName = body.author?.username || body.author?.name || body.authorName || "WhatsApp User";
+    let authorExternalId = body.author?.id || body.authorExternalId || "supergreen_anon";
+    let sourceName = body.chat?.title || body.sourceName || `Supergreen ${platform}`;
+    let chatId = body.chat?.id || body.chatId || "supergreen_chat";
+    let publishedAt = body.time ? Number(body.time) : Date.now();
+
+    // Construct profile / chat link
+    let profileUrl = body.authorProfileUrl || "#";
+    if (platform === "facebook" && authorExternalId && /^\d+$/.test(authorExternalId)) {
+      profileUrl = `https://www.facebook.com/${authorExternalId}`;
+    } else if (platform === "whatsapp" && authorExternalId.includes("@")) {
+      const phone = authorExternalId.split("@")[0];
+      profileUrl = `https://wa.me/${phone}`;
+    }
+
+    let postUrl = body.postUrl || profileUrl;
+
+    if (!text || text.trim().length < 5) {
+      return NextResponse.json({ success: false, error: "Text too short or missing" }, { status: 400 });
     }
 
     const now = Date.now();
+    const normalizedText = text.trim().toLowerCase();
+
+    // Check existing intents in InstantDB for strict deduplication
+    const { intents, buyers, sources } = await adminDb.query({
+      intents: {},
+      buyers: {},
+      sources: {},
+    });
+
+    const isDuplicate = intents.some(
+      (i) => (i.originalText || "").trim().toLowerCase() === normalizedText
+    );
+
+    if (isDuplicate) {
+      return NextResponse.json({
+        success: true,
+        matched: false,
+        duplicate: true,
+        message: "Post already processed (duplicate).",
+      });
+    }
+
+    // Run Gemini AI Buyer Intent Classification
     const analysis = await analyzePostForBuyerIntent(text);
 
     if (!analysis.isBuyerIntent) {
@@ -32,10 +66,9 @@ export async function POST(req: Request) {
       });
     }
 
-    // Find existing buyer or create
-    const { buyers, sources } = await adminDb.query({ buyers: {}, sources: {} });
-    let existingSource = sources.find((s) => s.platform === platform);
+    // Find or create source entity
     let sourceId: string;
+    let existingSource = sources.find((s) => s.externalId === chatId || s.name === sourceName);
 
     if (!existingSource) {
       sourceId = id();
@@ -44,7 +77,7 @@ export async function POST(req: Request) {
           platform,
           name: sourceName,
           url: postUrl,
-          externalId: platform,
+          externalId: chatId,
           status: "active",
           checkIntervalMinutes: 60,
           minIntervalMinutes: 15,
@@ -60,10 +93,18 @@ export async function POST(req: Request) {
       ]);
     } else {
       sourceId = existingSource.id;
+      await adminDb.transact([
+        adminDb.tx.sources[sourceId].update({
+          lastScrapedAt: now,
+          totalPostsScanned: (existingSource.totalPostsScanned || 0) + 1,
+          totalIntentsFound: (existingSource.totalIntentsFound || 0) + 1,
+        }),
+      ]);
     }
 
+    // Find or create buyer entity
     let buyerId: string;
-    const existingBuyer = buyers.find((b) => b.platform === platform && b.externalAuthorId === authorExternalId);
+    const existingBuyer = buyers.find((b) => b.externalAuthorId === authorExternalId);
 
     const txs: any[] = [];
     if (existingBuyer) {
@@ -81,7 +122,7 @@ export async function POST(req: Request) {
           name: authorName,
           platform,
           externalAuthorId: authorExternalId,
-          profileUrl: authorProfileUrl,
+          profileUrl,
           totalIntentPosts: 1,
           createdAt: now,
           updatedAt: now,
@@ -89,6 +130,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Create Intent entity
     const intentId = id();
     txs.push(
       adminDb.tx.intents[intentId]
@@ -106,7 +148,7 @@ export async function POST(req: Request) {
           urgency: analysis.urgency,
           confidenceScore: analysis.confidenceScore,
           matchedKeywords: JSON.stringify(analysis.matchedKeywords),
-          publishedAt: now,
+          publishedAt,
           scrapedAt: now,
           status: "open",
           createdAt: now,
@@ -122,6 +164,7 @@ export async function POST(req: Request) {
       matched: true,
       intentId,
       buyerId,
+      sourceId,
       analysis,
     });
   } catch (error: any) {
