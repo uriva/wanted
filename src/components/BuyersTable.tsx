@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, ExternalLink, AlertCircle, Clock, ArrowUpRight } from "lucide-react";
+import { Search, AlertCircle, Clock, ArrowUpRight } from "lucide-react";
 
 interface IntentItem {
   id: string;
@@ -12,10 +12,7 @@ interface IntentItem {
   translatedText: string;
   platform: string;
   postUrl: string;
-  intentType: string;
   category: string;
-  budget?: string;
-  urgency?: string;
   confidenceScore: number;
   publishedAt: number;
   buyer?: {
@@ -30,6 +27,25 @@ interface IntentItem {
 interface BuyersTableProps {
   intents: IntentItem[];
   onSelectIntent: (intent: IntentItem) => void;
+}
+
+function formatRelativeTime(timestamp: number): string {
+  if (!timestamp) return "recently";
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+
+  if (diffSecs < 60) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks > 1 ? "s" : ""} ago`;
+  return new Date(timestamp).toLocaleDateString();
 }
 
 export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProps) {
@@ -74,19 +90,6 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
         return <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-md">WhatsApp</span>;
       default:
         return <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-700 text-slate-300 border border-slate-600 rounded-md">{platform}</span>;
-    }
-  };
-
-  const getIntentTypeBadge = (intentType: string) => {
-    switch (intentType) {
-      case "custom_build":
-        return <span className="px-2 py-0.5 text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30 rounded">Custom Build</span>;
-      case "hire":
-        return <span className="px-2 py-0.5 text-[10px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 rounded">Hiring</span>;
-      case "service_request":
-        return <span className="px-2 py-0.5 text-[10px] font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 rounded">Service Req</span>;
-      default:
-        return <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded">Buying</span>;
     }
   };
 
@@ -151,8 +154,8 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
             <tr className="border-b border-slate-800 bg-slate-950/50 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               <th className="py-3.5 px-4 sm:px-6">Buyer & Profile</th>
               <th className="py-3.5 px-4 sm:px-6">What They Want (English Demand)</th>
-              <th className="py-3.5 px-4 sm:px-6">Category & Type</th>
-              <th className="py-3.5 px-4 sm:px-6">Posted Date</th>
+              <th className="py-3.5 px-4 sm:px-6">Category</th>
+              <th className="py-3.5 px-4 sm:px-6">Posted</th>
               <th className="py-3.5 px-4 sm:px-6 text-right">Action</th>
             </tr>
           </thead>
@@ -222,31 +225,25 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
                     </p>
                   </td>
 
-                  {/* Category & Type */}
+                  {/* Category */}
                   <td className="py-4 px-4 sm:px-6">
-                    <div className="flex flex-col space-y-1">
-                      <span className="text-xs font-medium text-slate-300">
-                        {item.category}
-                      </span>
-                      <div>{getIntentTypeBadge(item.intentType)}</div>
-                    </div>
+                    <span className="px-2.5 py-1 text-xs font-medium text-slate-300 bg-slate-800 border border-slate-700/80 rounded-lg">
+                      {item.category}
+                    </span>
                   </td>
 
-                  {/* Posted Date */}
-                  <td className="py-4 px-4 sm:px-6 whitespace-nowrap text-xs text-slate-400">
-                    <div className="flex items-center space-x-1">
+                  {/* Posted Date (Relative) */}
+                  <td className="py-4 px-4 sm:px-6 whitespace-nowrap text-xs text-slate-300">
+                    <div className="flex items-center space-x-1.5">
                       <Clock className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{new Date(item.publishedAt).toLocaleDateString()}</span>
+                      <span className="font-medium text-slate-200">{formatRelativeTime(item.publishedAt)}</span>
                     </div>
-                    <span className="text-[10px] text-slate-500">
-                      {new Date(item.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
                   </td>
 
                   {/* Action */}
                   <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
                     <button className="px-3 py-1.5 text-xs font-medium text-indigo-400 hover:text-white bg-indigo-500/10 hover:bg-indigo-600 border border-indigo-500/20 rounded-lg transition-all">
-                      View Raw Post
+                      View Post
                     </button>
                   </td>
                 </tr>
