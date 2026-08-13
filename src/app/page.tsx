@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/clientDb";
 import { id } from "@instantdb/react";
 import Header from "@/components/Header";
+import ScanStatusBar from "@/components/ScanStatusBar";
 import BuyersTable from "@/components/BuyersTable";
 import SourceScheduler from "@/components/SourceScheduler";
 import ScanLogs from "@/components/ScanLogs";
@@ -77,25 +78,28 @@ export default function HomePage() {
   const logs = data?.scan_logs || [];
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 font-sans selection:bg-zinc-800 selection:text-white">
+    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-150">
       {/* Header */}
       <Header />
 
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        {/* Live Scraper Status Bar (Last Scanned & Next Scan Timer) */}
+        <ScanStatusBar sources={sources as any} />
+
         {/* Tab Switcher */}
-        <div className="flex border-b border-zinc-800 mb-6 space-x-1 sm:space-x-4 overflow-x-auto">
+        <div className="flex border-b border-zinc-200 dark:border-zinc-800 mb-6 space-x-1 sm:space-x-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab("marketplace")}
             className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
               activeTab === "marketplace"
-                ? "border-white text-white"
-                : "border-transparent text-zinc-400 hover:text-zinc-200"
+                ? "border-black dark:border-white text-black dark:text-white"
+                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
             <span>Buyers & Demand Stream</span>
-            <span className="px-2 py-0.5 text-[10px] bg-zinc-800 text-zinc-300 rounded-full font-mono">
+            <span className="px-2 py-0.5 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-full font-mono">
               {intents.length}
             </span>
           </button>
@@ -104,13 +108,13 @@ export default function HomePage() {
             onClick={() => setActiveTab("sources")}
             className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
               activeTab === "sources"
-                ? "border-white text-white"
-                : "border-transparent text-zinc-400 hover:text-zinc-200"
+                ? "border-black dark:border-white text-black dark:text-white"
+                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
             }`}
           >
             <Radio className="w-4 h-4" />
             <span>Monitored Sources</span>
-            <span className="px-2 py-0.5 text-[10px] bg-zinc-800 text-zinc-300 rounded-full font-mono">
+            <span className="px-2 py-0.5 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-full font-mono">
               {sources.length}
             </span>
           </button>
@@ -119,8 +123,8 @@ export default function HomePage() {
             onClick={() => setActiveTab("logs")}
             className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
               activeTab === "logs"
-                ? "border-white text-white"
-                : "border-transparent text-zinc-400 hover:text-zinc-200"
+                ? "border-black dark:border-white text-black dark:text-white"
+                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
             }`}
           >
             <Activity className="w-4 h-4" />

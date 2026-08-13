@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #09090b;
   --card-bg: #ffffff;
   --card-border: #e4e4e7;
   --table-header: #f4f4f5;
-  --hover-bg: #f4f4f5;
   --muted-text: #71717a;
 }
 
@@ -16,7 +17,6 @@
   --card-bg: #18181b;
   --card-border: #27272a;
   --table-header: #09090b;
-  --hover-bg: #27272a;
   --muted-text: #a1a1aa;
 }
 
