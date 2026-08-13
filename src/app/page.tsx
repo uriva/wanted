@@ -98,7 +98,7 @@ export default function HomePage() {
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>Buyers & Demand Stream</span>
+            <span>Buyers</span>
             <span className="px-2 py-0.5 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-full font-mono">
               {intents.length}
             </span>
@@ -113,7 +113,7 @@ export default function HomePage() {
             }`}
           >
             <Radio className="w-4 h-4" />
-            <span>Monitored Sources</span>
+            <span>Sources</span>
             <span className="px-2 py-0.5 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-full font-mono">
               {sources.length}
             </span>
@@ -128,7 +128,7 @@ export default function HomePage() {
             }`}
           >
             <Activity className="w-4 h-4" />
-            <span>Scan Logs</span>
+            <span>Logs</span>
           </button>
         </div>
 
