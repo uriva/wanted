@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ExternalLink, AlertCircle } from "lucide-react";
+import { Plus, ExternalLink, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 interface SourceItem {
   id: string;
@@ -23,6 +23,8 @@ interface SourceSchedulerProps {
   onAddSource: (newSource: Partial<SourceItem>) => void;
 }
 
+type SortField = "name" | "platform" | "totalPostsScanned" | "totalIntentsFound" | "nextScheduledScanAt";
+
 function formatNextPollTime(nextScanTimestamp?: number): string {
   if (!nextScanTimestamp) return "Ready";
   const diffMs = nextScanTimestamp - Date.now();
@@ -43,14 +45,40 @@ export default function SourceScheduler({
   onAddSource,
 }: SourceSchedulerProps) {
   const [platformFilter, setPlatformFilter] = useState("all");
+  const [sortField, setSortField] = useState<SortField>("nextScheduledScanAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showAddModal, setShowAddModal] = useState(false);
   const [platform, setPlatform] = useState("facebook");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [externalId, setExternalId] = useState("");
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
   const filteredSources = sources.filter((s) => {
     return platformFilter === "all" || s.platform.toLowerCase() === platformFilter.toLowerCase();
+  });
+
+  const sortedSources = [...filteredSources].sort((a, b) => {
+    let valA: any = a[sortField];
+    let valB: any = b[sortField];
+
+    if (typeof valA === "string") {
+      valA = valA.toLowerCase();
+      valB = (valB || "").toLowerCase();
+      return sortDir === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
+
+    valA = valA || 0;
+    valB = valB || 0;
+    return sortDir === "asc" ? valA - valB : valB - valA;
   });
 
   const handleAdd = (e: React.FormEvent) => {
@@ -74,9 +102,20 @@ export default function SourceScheduler({
     setExternalId("");
   };
 
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 text-zinc-400 dark:text-zinc-600 inline ml-1 opacity-50" />;
+    }
+    return sortDir === "asc" ? (
+      <ArrowUp className="w-3 h-3 text-black dark:text-white inline ml-1" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-black dark:text-white inline ml-1" />
+    );
+  };
+
   const getPlatformBadge = (platform: string) => {
     return (
-      <span className="px-2 py-0.5 text-[10px] font-normal capitalize bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded">
+      <span className="px-2 py-0.5 text-[10px] font-mono capitalize bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded font-semibold">
         {platform === "twitter" ? "X / Twitter" : platform}
       </span>
     );
@@ -112,21 +151,61 @@ export default function SourceScheduler({
         </button>
       </div>
 
-      {/* Minimal Table */}
+      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-black/60 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              <th className="py-3 px-4 sm:px-6">Channel / Group</th>
-              <th className="py-3 px-4 sm:px-6 text-center">Posts Scanned</th>
-              <th className="py-3 px-4 sm:px-6 text-center">Buyer Matches</th>
-              <th className="py-3 px-4 sm:px-6 text-right">Next Poll</th>
+              {/* Channel / Group Header */}
+              <th
+                onClick={() => handleSort("name")}
+                className="py-3 px-4 sm:px-6 cursor-pointer select-none hover:text-black dark:hover:text-white transition-colors"
+              >
+                <span>Channel / Group</span>
+                {renderSortIcon("name")}
+              </th>
+
+              {/* Social Network Header */}
+              <th
+                onClick={() => handleSort("platform")}
+                className="py-3 px-4 sm:px-6 cursor-pointer select-none hover:text-black dark:hover:text-white transition-colors"
+              >
+                <span>Social Network</span>
+                {renderSortIcon("platform")}
+              </th>
+
+              {/* Posts Scanned Header */}
+              <th
+                onClick={() => handleSort("totalPostsScanned")}
+                className="py-3 px-4 sm:px-6 text-center cursor-pointer select-none hover:text-black dark:hover:text-white transition-colors"
+              >
+                <span>Posts Scanned</span>
+                {renderSortIcon("totalPostsScanned")}
+              </th>
+
+              {/* Buyer Matches Header */}
+              <th
+                onClick={() => handleSort("totalIntentsFound")}
+                className="py-3 px-4 sm:px-6 text-center cursor-pointer select-none hover:text-black dark:hover:text-white transition-colors"
+              >
+                <span>Buyer Matches</span>
+                {renderSortIcon("totalIntentsFound")}
+              </th>
+
+              {/* Next Poll Header */}
+              <th
+                onClick={() => handleSort("nextScheduledScanAt")}
+                className="py-3 px-4 sm:px-6 text-right cursor-pointer select-none hover:text-black dark:hover:text-white transition-colors"
+              >
+                <span>Next Poll</span>
+                {renderSortIcon("nextScheduledScanAt")}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/80 text-xs">
-            {filteredSources.length === 0 ? (
+            {sortedSources.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-12 text-center text-zinc-500">
+                <td colSpan={5} className="py-12 text-center text-zinc-500">
                   <div className="max-w-sm mx-auto flex flex-col items-center">
                     <AlertCircle className="w-6 h-6 text-zinc-400 dark:text-zinc-600 mb-2" />
                     <p className="font-medium text-zinc-600 dark:text-zinc-400">No monitored sources found</p>
@@ -134,7 +213,7 @@ export default function SourceScheduler({
                 </td>
               </tr>
             ) : (
-              filteredSources.map((source) => {
+              sortedSources.map((source) => {
                 const isDue = Date.now() >= (source.nextScheduledScanAt || 0);
                 return (
                   <tr
@@ -143,28 +222,28 @@ export default function SourceScheduler({
                   >
                     {/* Channel Name */}
                     <td className="py-3.5 px-4 sm:px-6">
-                      <div className="flex items-center space-x-3">
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span
-                              dir="auto"
-                              className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs hebrew-text"
-                            >
-                              {source.name}
-                            </span>
-                            <a
-                              href={source.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-zinc-400 hover:text-black dark:hover:text-white"
-                              title="Open Social Channel"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </div>
-                          <div className="mt-1">{getPlatformBadge(source.platform)}</div>
-                        </div>
+                      <div className="flex items-center space-x-2">
+                        <span
+                          dir="auto"
+                          className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs hebrew-text"
+                        >
+                          {source.name}
+                        </span>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-zinc-400 hover:text-black dark:hover:text-white shrink-0"
+                          title="Open Social Channel"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
                       </div>
+                    </td>
+
+                    {/* Social Network Column */}
+                    <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap">
+                      {getPlatformBadge(source.platform)}
                     </td>
 
                     {/* Posts Scanned */}
