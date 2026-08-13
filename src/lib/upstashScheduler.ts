@@ -1,6 +1,6 @@
 import { Client } from "@upstash/qstash";
 
-const QSTASH_TOKEN = process.env.QSTASH_TOKEN || "eyJVc2VySUQiOiI1ZThkZDg1NC03ODcwLTQ5MDAtYWIzNi1lNjU2ZDQzZTliMTQiLCJQYXNzd29yZCI6Ijk0ZjQ2ZThhZDg5NzQyODA4M2MxYTNlODIxMmU1YWRlIn0=";
+const QSTASH_TOKEN = process.env.QSTASH_TOKEN || "eyJVc2VySUQiOiJhMTUzNzYxZS1jMGIyLTQ0OTMtOWQxZS04OWE3Yjc1OWY5ZGQiLCJQYXNzd29yZCI6IjI0OWE2ZGIxZjFjZDRkZTU5NzExNDBiOWMyMWRiMDdkIn0=";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://wanted.uriva.deno.net";
 
 export async function scheduleNextScanWithUpstash(sourceId: string, delayMinutes: number) {

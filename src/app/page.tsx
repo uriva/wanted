@@ -147,7 +147,6 @@ export default function HomePage() {
             {activeTab === "sources" && (
               <SourceScheduler
                 sources={sources as any}
-                onScanSource={handleScanSource}
                 onAddSource={handleAddSource}
               />
             )}

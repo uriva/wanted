@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, ExternalLink, AlertCircle } from "lucide-react";
 
 interface SourceItem {
   id: string;
@@ -20,7 +20,6 @@ interface SourceItem {
 
 interface SourceSchedulerProps {
   sources: SourceItem[];
-  onScanSource: (sourceId: string) => void;
   onAddSource: (newSource: Partial<SourceItem>) => void;
 }
 
@@ -41,7 +40,6 @@ function formatNextPollTime(nextScanTimestamp?: number): string {
 
 export default function SourceScheduler({
   sources,
-  onScanSource,
   onAddSource,
 }: SourceSchedulerProps) {
   const [platformFilter, setPlatformFilter] = useState("all");
@@ -122,14 +120,13 @@ export default function SourceScheduler({
               <th className="py-3 px-4 sm:px-6">Channel / Group</th>
               <th className="py-3 px-4 sm:px-6 text-center">Posts Scanned</th>
               <th className="py-3 px-4 sm:px-6 text-center">Buyer Matches</th>
-              <th className="py-3 px-4 sm:px-6">Next Poll</th>
-              <th className="py-3 px-4 sm:px-6 text-right">Action</th>
+              <th className="py-3 px-4 sm:px-6 text-right">Next Poll</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/80 text-xs">
             {filteredSources.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-zinc-500">
+                <td colSpan={4} className="py-12 text-center text-zinc-500">
                   <div className="max-w-sm mx-auto flex flex-col items-center">
                     <AlertCircle className="w-6 h-6 text-zinc-400 dark:text-zinc-600 mb-2" />
                     <p className="font-medium text-zinc-600 dark:text-zinc-400">No monitored sources found</p>
@@ -178,7 +175,7 @@ export default function SourceScheduler({
                     </td>
 
                     {/* Next Poll */}
-                    <td className="py-3.5 px-4 sm:px-6 font-mono whitespace-nowrap">
+                    <td className="py-3.5 px-4 sm:px-6 font-mono whitespace-nowrap text-right">
                       <span
                         className={`px-2 py-0.5 rounded text-[11px] font-bold ${
                           isDue
@@ -188,17 +185,6 @@ export default function SourceScheduler({
                       >
                         {formatNextPollTime(source.nextScheduledScanAt)}
                       </span>
-                    </td>
-
-                    {/* Action */}
-                    <td className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => onScanSource(source.id)}
-                        className="px-3 py-1 text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded transition-all inline-flex items-center space-x-1"
-                      >
-                        <RefreshCw className="w-3 h-3 text-zinc-500" />
-                        <span>Scan</span>
-                      </button>
                     </td>
                   </tr>
                 );
