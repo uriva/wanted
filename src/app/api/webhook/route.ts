@@ -3,6 +3,27 @@ import { adminDb } from "@/lib/adminDb";
 import { id } from "@instantdb/admin";
 import { analyzePostForBuyerIntent } from "@/lib/intentClassifier";
 
+// Keywords that identify a relevant WhatsApp group/channel
+const RELEVANT_GROUP_KEYWORDS = [
+  "automation", "אוטומציה", "ai", "בינה מלאכותית", "dev", "פיתוח", "software", "תוכנה",
+  "tech", "טכנולוגיה", "code", "קודינג", "freelance", "פרילנס", "business", "עסקים",
+  "marketing", "שיווק", "hiring", "דרושים", "leads", "לידים", "mcp", "n8n", "make",
+  "bot", "בוט", "claude", "קלוד", "openclaw", "vibe coding", "buyers", "wanted",
+  "opportunity", "פרויקטים", "משרות", "עבודות", "הזדמנויות", "startups", "סטארטאפ"
+];
+
+function isRelevantGroup(chatId: string, groupTitle: string): boolean {
+  // Ignore personal 1:1 DMs (ending with @c.us without group title)
+  if (chatId.endsWith("@c.us") && !groupTitle) {
+    return false;
+  }
+
+  if (!groupTitle) return false;
+
+  const lowerTitle = groupTitle.toLowerCase();
+  return RELEVANT_GROUP_KEYWORDS.some((kw) => lowerTitle.includes(kw.toLowerCase()));
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -15,6 +36,17 @@ export async function POST(req: Request) {
     let sourceName = body.chat?.title || body.sourceName || `Supergreen ${platform}`;
     let chatId = body.chat?.id || body.chatId || "supergreen_chat";
     let publishedAt = body.time ? Number(body.time) : Date.now();
+
+    // Filter WhatsApp groups: ONLY process messages from relevant tech/business/automation groups!
+    if (platform === "whatsapp" && !isRelevantGroup(chatId, sourceName)) {
+      console.log(`[Webhook] Ignoring message from off-topic WhatsApp group: "${sourceName}" (${chatId})`);
+      return NextResponse.json({
+        success: true,
+        matched: false,
+        ignoredGroup: true,
+        message: `Ignored off-topic WhatsApp group: "${sourceName}"`,
+      });
+    }
 
     // Construct profile / chat link
     let profileUrl = body.authorProfileUrl || "#";
