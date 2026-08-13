@@ -1,6 +1,7 @@
 import { id } from "@instantdb/admin";
 import { adminDb } from "./adminDb";
 import { analyzePostForBuyerIntent, IntentAnalysisResult } from "./intentClassifier";
+import { scheduleNextScanWithUpstash } from "./upstashScheduler";
 
 const SCRAPE_CREATORS_API_KEY = process.env.SCRAPE_CREATORS_API_KEY || "4zCp1kzsF1UobT8aQlzgSCgTPZq2";
 
@@ -38,7 +39,7 @@ export async function fetchPostsFromPlatform(
               externalPostId: String(item.id || id()),
               authorName: author.name || author.short_name || "Facebook User",
               authorExternalId: String(author.id || author.name || "fb_anon"),
-              authorProfileUrl: author.url || item.url || url,
+              authorProfileUrl: author.url || (author.id ? `https://www.facebook.com/${author.id}` : (item.url || url)),
               authorAvatarUrl: item.image || undefined,
               postUrl: item.url || item.permalink || url,
               originalText: item.text || "",
@@ -136,7 +137,6 @@ export async function scanSource(sourceId: string) {
     // Strict Deduplication Check: Skip if externalPostId or identical post text already exists
     const normalizedText = post.originalText.trim().toLowerCase();
     if (existingPostIds.has(post.externalPostId) || existingTextHashes.has(normalizedText)) {
-      console.log(`Skipping duplicate post ID: ${post.externalPostId}`);
       continue;
     }
 
@@ -264,6 +264,9 @@ export async function scanSource(sourceId: string) {
   if (txs.length > 0) {
     await adminDb.transact(txs);
   }
+
+  // Schedule background scan with Upstash QStash
+  await scheduleNextScanWithUpstash(sourceId, checkIntervalMinutes);
 
   return {
     sourceId,

@@ -11,6 +11,7 @@
   "dependencies": {
     "@instantdb/admin": "^1.0.65",
     "@instantdb/react": "^1.0.65",
+    "@upstash/qstash": "^2.11.3",
     "@upstash/redis": "^1.38.2",
     "clsx": "^2.1.1",
     "lucide-react": "^1.31.0",

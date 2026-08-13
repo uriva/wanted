@@ -69,7 +69,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
 
   const getPlatformBadge = (platform: string) => {
     return (
-      <span className="px-2 py-0.5 text-[10px] font-mono capitalize bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded">
+      <span className="px-2 py-0.5 text-[10px] font-normal capitalize bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded">
         {platform === "twitter" ? "X / Twitter" : platform}
       </span>
     );
@@ -86,7 +86,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
             placeholder="Search buyers, demand keywords, or names..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-1.5 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-all"
+            className="w-full pl-10 pr-4 py-1.5 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-all font-normal"
           />
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-black/60 text-[11px] font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-black/60 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               <th className="py-3 px-4 sm:px-6">Person</th>
               <th className="py-3 px-4 sm:px-6">What They Want</th>
               <th className="py-3 px-4 sm:px-6 text-right">Posted</th>
@@ -121,7 +121,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
                   {/* Person Column */}
                   <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 font-bold text-xs shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 font-semibold text-xs shrink-0">
                         {item.buyer?.avatarUrl ? (
                           <img
                             src={item.buyer.avatarUrl}
@@ -133,7 +133,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
                         )}
                       </div>
                       <div>
-                        <span className="font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-black dark:group-hover:text-white transition-colors block text-xs">
+                        <span className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-black dark:group-hover:text-white transition-colors block text-xs">
                           {item.buyer?.name || "Anonymous Buyer"}
                         </span>
                         <div className="mt-1">
@@ -147,7 +147,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
                   <td className="py-3.5 px-4 sm:px-6">
                     <p
                       dir="auto"
-                      className="text-xs text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-relaxed hebrew-text group-hover:text-black dark:group-hover:text-white transition-colors"
+                      className="text-xs text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-relaxed hebrew-text group-hover:text-black dark:group-hover:text-white transition-colors font-normal"
                     >
                       {item.originalText || item.title}
                     </p>
@@ -155,7 +155,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
 
                   {/* Posted Date (Relative) */}
                   <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400 text-right">
-                    <div className="flex items-center justify-end space-x-1.5 font-mono">
+                    <div className="flex items-center justify-end space-x-1.5 font-normal">
                       <Clock className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
                       <span>{formatRelativeTime(item.publishedAt)}</span>
                     </div>
