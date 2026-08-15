@@ -24,7 +24,7 @@ interface IntentItem {
   };
 }
 
-interface BuyersTableProps {
+interface SellersTableProps {
   intents: IntentItem[];
   onSelectIntent: (intent: IntentItem) => void;
 }
@@ -48,9 +48,9 @@ function formatRelativeTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-function BuyerAvatar({ name, avatarUrl }: { name?: string; avatarUrl?: string }) {
+function SellerAvatar({ name, avatarUrl }: { name?: string; avatarUrl?: string }) {
   const [imgError, setImgError] = useState(false);
-  const initials = (name || "B")
+  const initials = (name || "S")
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -62,7 +62,7 @@ function BuyerAvatar({ name, avatarUrl }: { name?: string; avatarUrl?: string })
       {avatarUrl && !imgError ? (
         <img
           src={avatarUrl}
-          alt={name || "Buyer"}
+          alt={name || "Seller"}
           onError={() => setImgError(true)}
           className="w-full h-full rounded-full object-cover"
         />
@@ -73,15 +73,15 @@ function BuyerAvatar({ name, avatarUrl }: { name?: string; avatarUrl?: string })
   );
 }
 
-export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProps) {
+export default function SellersTable({ intents, onSelectIntent }: SellersTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Filter only buyer intents
-  const buyerIntents = intents.filter((i) => i.intentType !== "sell");
+  // Filter only seller intents
+  const sellerIntents = intents.filter((i) => i.intentType === "sell");
 
   // Deduplicate items by originalText or externalPostId
   const seenKeys = new Set<string>();
-  const uniqueIntents = buyerIntents.filter((item) => {
+  const uniqueIntents = sellerIntents.filter((item) => {
     const key = item.externalPostId || (item.originalText || "").trim().toLowerCase();
     if (seenKeys.has(key)) return false;
     seenKeys.add(key);
@@ -112,7 +112,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
           <input
             type="text"
-            placeholder="Search buyers, demand keywords, or names..."
+            placeholder="Search sellers, services, offers, or names..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-1.5 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-all font-normal"
@@ -126,7 +126,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
           <thead>
             <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-black/60 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               <th className="py-3 px-4 sm:px-6">Person</th>
-              <th className="py-3 px-4 sm:px-6">What They Want</th>
+              <th className="py-3 px-4 sm:px-6">What They Offer</th>
               <th className="py-3 px-4 sm:px-6 text-right">Posted</th>
             </tr>
           </thead>
@@ -136,7 +136,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
                 <td colSpan={3} className="py-12 text-center text-zinc-500">
                   <div className="max-w-sm mx-auto flex flex-col items-center">
                     <AlertCircle className="w-6 h-6 text-zinc-400 dark:text-zinc-600 mb-2" />
-                    <p className="font-medium text-zinc-600 dark:text-zinc-400">No matching buyers found</p>
+                    <p className="font-medium text-zinc-600 dark:text-zinc-400">No matching sellers found</p>
                   </div>
                 </td>
               </tr>
@@ -150,10 +150,10 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
                   {/* Person Column */}
                   <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap">
                     <div className="flex items-center space-x-3">
-                      <BuyerAvatar name={item.buyer?.name} avatarUrl={item.buyer?.avatarUrl} />
+                      <SellerAvatar name={item.buyer?.name} avatarUrl={item.buyer?.avatarUrl} />
                       <div>
                         <span className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-black dark:group-hover:text-white transition-colors block text-xs">
-                          {item.buyer?.name || "Anonymous Buyer"}
+                          {item.buyer?.name || "Anonymous Seller"}
                         </span>
                         <div className="mt-1">
                           {getPlatformBadge(item.platform)}
@@ -162,7 +162,7 @@ export default function BuyersTable({ intents, onSelectIntent }: BuyersTableProp
                     </div>
                   </td>
 
-                  {/* What They Want Column */}
+                  {/* What They Offer Column */}
                   <td className="py-3.5 px-4 sm:px-6">
                     <p
                       dir="auto"

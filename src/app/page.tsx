@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { db } from "@/lib/clientDb";
 import { id } from "@instantdb/react";
 import Header from "@/components/Header";
 import ScanStatusBar from "@/components/ScanStatusBar";
 import BuyersTable from "@/components/BuyersTable";
+import SellersTable from "@/components/SellersTable";
 import SourceScheduler from "@/components/SourceScheduler";
 import ScanLogs from "@/components/ScanLogs";
 import IntentDetailModal from "@/components/IntentDetailModal";
-import { ShoppingBag, Radio, Activity, RefreshCw } from "lucide-react";
+import { ShoppingBag, Tag, Radio, Activity, RefreshCw } from "lucide-react";
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<"marketplace" | "sources" | "logs">("marketplace");
+  const [activeTab, setActiveTab] = useState<"buyers" | "sellers" | "sources" | "logs">("buyers");
   const [selectedIntent, setSelectedIntent] = useState<any>(null);
 
   // Subscribe to InstantDB real-time state
@@ -28,6 +29,74 @@ export default function HomePage() {
       $: { order: { scrapedAt: "desc" } },
     },
   });
+
+  const sources = data?.sources || [];
+  const intents = data?.intents || [];
+  const logs = data?.scan_logs || [];
+
+  const buyerIntents = intents.filter((i: any) => i.intentType !== "sell");
+  const sellerIntents = intents.filter((i: any) => i.intentType === "sell");
+
+  // Helper to extract post/intent ID from URL query parameters
+  const getPostIdFromUrl = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("post") || params.get("intent") || params.get("p");
+  }, []);
+
+  // Update URL search parameters when opening or closing modal
+  const updateUrlPostId = useCallback((postId: string | null) => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (postId) {
+      url.searchParams.set("post", postId);
+      url.searchParams.delete("intent");
+      url.searchParams.delete("p");
+    } else {
+      url.searchParams.delete("post");
+      url.searchParams.delete("intent");
+      url.searchParams.delete("p");
+    }
+    const newSearch = url.searchParams.toString();
+    const newUrl = url.pathname + (newSearch ? `?${newSearch}` : "") + url.hash;
+    window.history.pushState(null, "", newUrl);
+  }, []);
+
+  const handleSelectIntent = (intent: any) => {
+    setSelectedIntent(intent);
+    if (intent?.id) {
+      updateUrlPostId(intent.id);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setSelectedIntent(null);
+    updateUrlPostId(null);
+  };
+
+  // Sync state with URL on mount, data changes, and popstate (browser back/forward)
+  useEffect(() => {
+    const syncFromUrl = () => {
+      const postId = getPostIdFromUrl();
+      if (postId && intents.length > 0) {
+        const match = intents.find(
+          (i: any) => i.id === postId || i.externalPostId === postId
+        );
+        if (match) {
+          setSelectedIntent(match);
+        }
+      } else if (!postId) {
+        setSelectedIntent(null);
+      }
+    };
+
+    syncFromUrl();
+
+    window.addEventListener("popstate", syncFromUrl);
+    return () => {
+      window.removeEventListener("popstate", syncFromUrl);
+    };
+  }, [intents, getPostIdFromUrl]);
 
   // Seed initial sources if empty
   useEffect(() => {
@@ -73,10 +142,6 @@ export default function HomePage() {
     }
   };
 
-  const sources = data?.sources || [];
-  const intents = data?.intents || [];
-  const logs = data?.scan_logs || [];
-
   return (
     <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans transition-colors duration-150">
       {/* Header */}
@@ -89,10 +154,11 @@ export default function HomePage() {
 
         {/* Tab Switcher */}
         <div className="flex border-b border-zinc-200 dark:border-zinc-800 mb-6 space-x-1 sm:space-x-4 overflow-x-auto">
+          {/* Buyers Tab */}
           <button
-            onClick={() => setActiveTab("marketplace")}
+            onClick={() => setActiveTab("buyers")}
             className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
-              activeTab === "marketplace"
+              activeTab === "buyers"
                 ? "border-black dark:border-white text-black dark:text-white"
                 : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
             }`}
@@ -100,10 +166,27 @@ export default function HomePage() {
             <ShoppingBag className="w-4 h-4" />
             <span>Buyers</span>
             <span className="px-2 py-0.5 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-full font-mono">
-              {intents.length}
+              {buyerIntents.length}
             </span>
           </button>
 
+          {/* Sellers Tab */}
+          <button
+            onClick={() => setActiveTab("sellers")}
+            className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
+              activeTab === "sellers"
+                ? "border-black dark:border-white text-black dark:text-white"
+                : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+            }`}
+          >
+            <Tag className="w-4 h-4" />
+            <span>Sellers</span>
+            <span className="px-2 py-0.5 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-full font-mono">
+              {sellerIntents.length}
+            </span>
+          </button>
+
+          {/* Sources Tab */}
           <button
             onClick={() => setActiveTab("sources")}
             className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
@@ -119,6 +202,7 @@ export default function HomePage() {
             </span>
           </button>
 
+          {/* Logs Tab */}
           <button
             onClick={() => setActiveTab("logs")}
             className={`pb-3 px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
@@ -140,8 +224,12 @@ export default function HomePage() {
           </div>
         ) : (
           <>
-            {activeTab === "marketplace" && (
-              <BuyersTable intents={intents as any} onSelectIntent={setSelectedIntent} />
+            {activeTab === "buyers" && (
+              <BuyersTable intents={intents as any} onSelectIntent={handleSelectIntent} />
+            )}
+
+            {activeTab === "sellers" && (
+              <SellersTable intents={intents as any} onSelectIntent={handleSelectIntent} />
             )}
 
             {activeTab === "sources" && (
@@ -156,8 +244,8 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Buyer Intent Detail Modal */}
-      <IntentDetailModal intent={selectedIntent} onClose={() => setSelectedIntent(null)} />
+      {/* Post Intent Detail Modal */}
+      <IntentDetailModal intent={selectedIntent} onClose={handleCloseModal} />
     </div>
   );
 }

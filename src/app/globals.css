@@ -39,3 +39,44 @@ body {
   line-height: 1.6;
   letter-spacing: normal;
 }
+
+/* Custom Scrollbars matching light & dark monochrome color scheme */
+:root {
+  scrollbar-color: #d4d4d8 transparent;
+  scrollbar-width: thin;
+}
+
+.dark {
+  scrollbar-color: #27272a transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #d4d4d8;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #a1a1aa;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #27272a;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: #3f3f46;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

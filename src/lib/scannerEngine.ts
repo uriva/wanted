@@ -1,6 +1,6 @@
 import { id } from "@instantdb/admin";
 import { adminDb } from "./adminDb";
-import { analyzePostForBuyerIntent, IntentAnalysisResult } from "./intentClassifier";
+import { analyzePostIntent, IntentAnalysisResult } from "./intentClassifier";
 import { scheduleNextScanWithUpstash } from "./upstashScheduler";
 
 const SCRAPE_CREATORS_API_KEY = process.env.SCRAPE_CREATORS_API_KEY || "4zCp1kzsF1UobT8aQlzgSCgTPZq2";
@@ -140,9 +140,9 @@ export async function scanSource(sourceId: string) {
       continue;
     }
 
-    const analysis = await analyzePostForBuyerIntent(post.originalText);
+    const analysis = await analyzePostIntent(post.originalText);
 
-    if (analysis.isBuyerIntent) {
+    if (analysis.hasIntent) {
       // Add to tracked sets to prevent duplicate in same batch
       existingPostIds.add(post.externalPostId);
       existingTextHashes.add(normalizedText);

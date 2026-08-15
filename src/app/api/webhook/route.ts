@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/adminDb";
 import { id } from "@instantdb/admin";
-import { analyzePostForBuyerIntent } from "@/lib/intentClassifier";
+import { analyzePostIntent } from "@/lib/intentClassifier";
 
 // Exact full-word keywords that identify a relevant WhatsApp tech/business/automation group
 const RELEVANT_GROUP_KEYWORDS = [
@@ -10,6 +10,11 @@ const RELEVANT_GROUP_KEYWORDS = [
   "marketing", "שיווק", "hiring", "דרושים", "mcp", "n8n", "make",
   "bot", "בוט", "claude", "קלוד", "openclaw", "vibe coding", "buyers", "wanted",
   "startups", "סטארטאפ"
+];
+
+// Groups explicitly excluded from coverage
+const EXCLUDED_GROUP_KEYWORDS = [
+  "prompt2bot",
 ];
 
 function isRelevantGroup(chatId: string, groupTitle: string): boolean {
@@ -21,6 +26,12 @@ function isRelevantGroup(chatId: string, groupTitle: string): boolean {
   if (!groupTitle) return false;
 
   const lowerTitle = groupTitle.toLowerCase();
+
+  // Check exclusions first
+  if (EXCLUDED_GROUP_KEYWORDS.some((kw) => lowerTitle.includes(kw.toLowerCase()))) {
+    return false;
+  }
+
   // Check exact word or explicit keyword match
   return RELEVANT_GROUP_KEYWORDS.some((kw) => {
     const regex = new RegExp(`(?:^|\\s|_|-|\\|)${kw.toLowerCase()}(?:$|\\s|_|-|\\|)`, "i");
@@ -90,14 +101,14 @@ export async function POST(req: Request) {
       });
     }
 
-    // Run Gemini AI Buyer Intent Classification
-    const analysis = await analyzePostForBuyerIntent(text);
+    // Run Gemini AI Buyer / Seller Intent Classification
+    const analysis = await analyzePostIntent(text);
 
-    if (!analysis.isBuyerIntent) {
+    if (!analysis.hasIntent) {
       return NextResponse.json({
         success: true,
         matched: false,
-        message: "Post processed, but did not match buyer intent criteria.",
+        message: "Post processed, but did not match buyer or seller intent criteria.",
         analysis,
       });
     }
