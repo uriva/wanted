@@ -37,7 +37,7 @@ export async function analyzePostIntent(text: string): Promise<IntentAnalysisRes
 
   try {
     const key = GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${key}`;
 
     const prompt = `You are an expert Social Marketplace Intent Classifier.
 Analyze the following social media post to identify whether the author expresses BUYER intent or SELLER intent:
@@ -91,7 +91,7 @@ Respond strictly with a JSON object in this exact format:
           summaryEn: parsed.summary || clean,
           translatedTextEn: text,
           urgency: "medium",
-          matchedKeywords: ["gemini-3.6-flash"],
+          matchedKeywords: ["gemini-3.7-flash"],
         };
       }
     }
