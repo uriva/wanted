@@ -68,7 +68,6 @@ export default function WebhookSimulator({ onPostSubmitted }: WebhookSimulatorPr
               <option value="whatsapp">WhatsApp Group</option>
               <option value="facebook">Facebook Post</option>
               <option value="reddit">Reddit Post</option>
-              <option value="twitter">X / Twitter Tweet</option>
               <option value="telegram">Telegram Channel</option>
             </select>
           </div>

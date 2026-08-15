@@ -49,8 +49,9 @@ export async function POST() {
     // Perform initial scan on all active sources
     const { sources: updatedSources } = await adminDb.query({ sources: {} });
     const scanResults = [];
+    const activeSources = updatedSources.filter((s) => s.status === "active");
 
-    for (const source of updatedSources) {
+    for (const source of activeSources) {
       try {
         const res = await scanSource(source.id);
         scanResults.push(res);
@@ -62,7 +63,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: `Seeded ${newSourceIds.length} new sources from Supergreen and executed scan across ${updatedSources.length} sources.`,
+      message: `Seeded ${newSourceIds.length} new sources from Supergreen and executed scan across ${activeSources.length} sources.`,
       sourcesCount: updatedSources.length,
       scanResults,
     });

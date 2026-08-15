@@ -36,6 +36,7 @@ export default function HomePage() {
 
   const buyerIntents = intents.filter((i: any) => i.intentType !== "sell");
   const sellerIntents = intents.filter((i: any) => i.intentType === "sell");
+  const activeSources = sources.filter((s: any) => s.status !== "pending_review");
 
   // Helper to extract post/intent ID from URL query parameters
   const getPostIdFromUrl = useCallback(() => {
@@ -130,8 +131,9 @@ export default function HomePage() {
       await db.transact(
         db.tx.sources[id()].create({
           ...newSource,
-          lastScrapedAt: Date.now(),
-          nextScheduledScanAt: Date.now(),
+          status: newSource.status || "pending_review",
+          lastScrapedAt: 0,
+          nextScheduledScanAt: 0,
           totalPostsScanned: 0,
           totalIntentsFound: 0,
           createdAt: Date.now(),
@@ -150,7 +152,7 @@ export default function HomePage() {
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* Live Scraper Status Bar (Last Scanned & Next Scan Timer) */}
-        <ScanStatusBar sources={sources as any} />
+        <ScanStatusBar sources={activeSources as any} />
 
         {/* Tab Switcher */}
         <div className="flex border-b border-zinc-200 dark:border-zinc-800 mb-6 space-x-1 sm:space-x-4 overflow-x-auto">
@@ -198,7 +200,7 @@ export default function HomePage() {
             <Radio className="w-4 h-4" />
             <span>Sources</span>
             <span className="px-2 py-0.5 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-full font-mono">
-              {sources.length}
+              {activeSources.length}
             </span>
           </button>
 

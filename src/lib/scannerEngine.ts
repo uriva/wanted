@@ -73,31 +73,6 @@ export async function fetchPostsFromPlatform(
           }
         }
       }
-    } else if (platform === "twitter") {
-      const query = externalId || "hiring developer";
-      const apiUrl = `https://api.scrapecreators.com/v1/twitter/search?query=${encodeURIComponent(query)}`;
-      const res = await fetch(apiUrl, {
-        headers: { "x-api-key": SCRAPE_CREATORS_API_KEY },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const tweets = data.tweets || data.data || [];
-        if (Array.isArray(tweets)) {
-          for (const item of tweets) {
-            const author = item.user || item.author || {};
-            posts.push({
-              externalPostId: String(item.id || id()),
-              authorName: author.name || author.screen_name || "X User",
-              authorExternalId: String(author.id_str || author.screen_name || "x_anon"),
-              authorProfileUrl: author.screen_name ? `https://x.com/${author.screen_name}` : "https://x.com",
-              authorAvatarUrl: author.profile_image_url_https,
-              postUrl: item.url || `https://x.com/i/status/${item.id}`,
-              originalText: item.full_text || item.text || "",
-              publishedAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
-            });
-          }
-        }
-      }
     }
   } catch (err) {
     console.error(`Error fetching posts for platform ${platform}:`, err);
@@ -117,6 +92,14 @@ export async function scanSource(sourceId: string) {
   const source = sources[0];
   if (!source) {
     throw new Error(`Source not found with ID: ${sourceId}`);
+  }
+
+  if (source.status === "pending_review" || source.status === "paused") {
+    return {
+      sourceId,
+      skipped: true,
+      reason: `Source status is ${source.status}`,
+    };
   }
 
   // Create sets of existing post IDs and original text for fast deduplication
