@@ -9,10 +9,10 @@ interface WebhookSimulatorProps {
 
 export default function WebhookSimulator({ onPostSubmitted }: WebhookSimulatorProps) {
   const [platform, setPlatform] = useState("whatsapp");
-  const [authorName, setAuthorName] = useState("Noam Cohen");
-  const [authorExternalId, setAuthorExternalId] = useState("wa_user_97250");
+  const [authorName, setAuthorName] = useState("Alex Morgan");
+  const [authorExternalId, setAuthorExternalId] = useState("wa_user_10294");
   const [text, setText] = useState(
-    "מחפשת לבנות בוט לפרסום ממומן בפייסבוק - להקמת קמפיינים וניהול מלא אוטונומי. אשמח להצעות ולבעלי ניסיון בתחום 🌸🙏🏼"
+    "Looking for an automation engineer to build a custom CRM sync bot with n8n and AI agents. Open to proposals from experienced developers! 🚀"
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -53,7 +53,7 @@ export default function WebhookSimulator({ onPostSubmitted }: WebhookSimulatorPr
         <h2 className="text-lg font-bold text-white">Inbound Lead Simulator (WhatsApp / Webhook)</h2>
       </div>
       <p className="text-xs text-slate-400 mb-6">
-        Simulate an incoming raw post in any language (Hebrew, English, Spanish, etc.) from WhatsApp, webhooks, or custom crawlers. The AI classifier will evaluate buyer intent, extract demand, and add it to the reverse marketplace.
+        Simulate an incoming raw post in any language from WhatsApp, webhooks, or custom crawlers. The AI classifier will evaluate buyer/seller intent, extract demand, and add it to the reverse marketplace.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">

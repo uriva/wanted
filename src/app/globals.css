@@ -30,9 +30,9 @@ body {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* Hebrew & Clean Text Formatting */
+/* Multilingual & Clean Text Formatting */
 .hebrew-text {
-  font-family: var(--font-heebo), var(--font-assistant), sans-serif;
+  font-family: var(--font-heebo), var(--font-assistant), system-ui, -apple-system, sans-serif;
   font-weight: 400;
   direction: auto;
   unicode-bidi: plaintext;

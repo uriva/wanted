@@ -539,7 +539,7 @@ export default function SourceScheduler({
                 <label className="block text-zinc-600 dark:text-zinc-400 font-medium mb-1">Channel / Group Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Israeli AI Startups & Buyers"
+                  placeholder="e.g. AI Startups & Freelancers"
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
