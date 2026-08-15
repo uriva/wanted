@@ -13,6 +13,18 @@ export interface IntentAnalysisResult {
   matchedKeywords: string[];
 }
 
+export interface CommentInput {
+  id: string;
+  authorName?: string;
+  text: string;
+}
+
+export interface PostContext {
+  text: string;
+  intentType: "buy" | "sell" | "none" | string;
+  authorName?: string;
+}
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
 export async function analyzePostIntent(text: string): Promise<IntentAnalysisResult> {
@@ -129,6 +141,201 @@ Respond strictly with a JSON object in this exact format:
     urgency: "medium",
     matchedKeywords: ["fallback"],
   };
+}
+
+/**
+ * Heuristic fallback for classifying comment intent given parent post context
+ */
+export function fallbackAnalyzeComment(
+  commentText: string,
+  postIntentType: string
+): IntentAnalysisResult {
+  const clean = commentText.replace(/[\n\r]+/g, " ").trim();
+  const title = clean.length > 80 ? clean.substring(0, 75) + "..." : clean;
+  const lower = commentText.toLowerCase();
+
+  // Contact info signals (phone, email, WhatsApp, telegram)
+  const phonePattern = /(?:05\d-?\d{7}|(?:\+972|972)-?5\d-?\d{7}|\b\d{3}[-.]?\d{3}[-.]?\d{4}\b|\b0\d{1,2}-?\d{7}\b)/;
+  const hasContact = phonePattern.test(lower) || lower.includes("wa.me") || lower.includes("@") || lower.includes("t.me");
+
+  // Service provider / seller signals in comments
+  const sellerPhrases =
+    /דבר איתי|דברי איתי|מוזמן לפנות|מוזמנת לפנות|אשמח לעזור|שלחתי בפרטי|שלחתי הודעה|בפרטי|שלח לי הודעה|מציע|יש לי סוכן|יש לי|יש לנו|אנחנו בונים|אנחנו מפתחים|אני מפתח|אני בונה|הצעת מחיר|תיק עבודות|תרגיש חופשי|פנה אליי|פנה אלי|מוזמן ליצור קשר|dm me|pm me|call me|contact me|check dm|i can help|we can build|reach out|portfolio|available for/i;
+
+  // Buyer signals in comments
+  const buyerPhrases =
+    /מעוניין|מעוניינת|מעוניינים|כמה עולה|מה המחיר|אשמח להצעת מחיר|אני צריך|אני צריכה|גם אני מחפש|גם אני צריך|שלח לי פרטים|רלוונטי|how much|interested|price|pricing|need this too|cost|dm me details/i;
+
+  let intentType: "buy" | "sell" | "none" = "none";
+
+  if (postIntentType === "buy") {
+    // If the post is a BUYER looking for help: comments offering contact or services are SELLERS
+    if (hasContact || sellerPhrases.test(lower)) {
+      intentType = "sell";
+    } else if (buyerPhrases.test(lower)) {
+      intentType = "buy";
+    }
+  } else if (postIntentType === "sell") {
+    // If the post is a SELLER offering services: comments expressing interest are BUYERS
+    if (buyerPhrases.test(lower) || hasContact) {
+      intentType = "buy";
+    } else if (sellerPhrases.test(lower)) {
+      intentType = "sell";
+    }
+  } else {
+    if (sellerPhrases.test(lower) || hasContact) intentType = "sell";
+    else if (buyerPhrases.test(lower)) intentType = "buy";
+  }
+
+  const hasIntent = intentType !== "none";
+  return {
+    hasIntent,
+    intentType,
+    isBuyerIntent: intentType === "buy",
+    isSellerIntent: intentType === "sell",
+    confidenceScore: hasIntent ? 0.85 : 0.1,
+    category: "Software & AI",
+    titleEn: title,
+    summaryEn: clean,
+    translatedTextEn: commentText,
+    urgency: "medium",
+    matchedKeywords: ["comment-heuristic"],
+  };
+}
+
+/**
+ * Classifies multiple comments on a post in batch using Gemini 3.7 Flash with parent post context
+ */
+export async function analyzeBatchCommentsIntent(
+  comments: CommentInput[],
+  postContext: PostContext
+): Promise<Map<string, IntentAnalysisResult>> {
+  const results = new Map<string, IntentAnalysisResult>();
+  if (!comments || comments.length === 0) return results;
+
+  const validComments = comments.filter((c) => c.text && c.text.trim().length >= 3);
+  if (validComments.length === 0) return results;
+
+  try {
+    const key = GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${key}`;
+
+    const prompt = `You are an expert Social Marketplace Intent Classifier.
+You are analyzing comments on a social media post where the original post had a confirmed BUYER or SELLER commercial intent.
+Use the context of the original post to identify whether each comment expresses BUYER intent, SELLER (Service Provider / Vendor / Freelancer) intent, or NEITHER.
+
+ORIGINAL POST CONTEXT:
+- Author: "${(postContext.authorName || "Author").replace(/"/g, '\\"')}"
+- Post Intent: ${postContext.intentType.toUpperCase()}
+- Post Content: "${postContext.text.replace(/[\n\r]+/g, " ").replace(/"/g, '\\"')}"
+
+COMMENTS TO CLASSIFY:
+${JSON.stringify(
+  validComments.map((c, i) => ({
+    index: i,
+    id: c.id,
+    author: c.authorName || "User",
+    text: c.text.replace(/[\n\r]+/g, " "),
+  })),
+  null,
+  2
+)}
+
+CLASSIFICATION RULES & GUIDELINES:
+1. SELLER INTENT ("sell"):
+   - When responding to a BUYER post (e.g. client looking to hire/buy/build an app, agent, bot, or service): The commenter is acting as a service provider, agency, freelancer, developer, or vendor offering their services, solutions, capacity, portfolio, contact details ("call me / דבר איתי", phone numbers, "DM sent / שלחתי בפרטי", "we build this / יש לי סוכן שעושה עבודה דומה"), or pitching to solve the buyer's requirement.
+   - When responding to any post: The commenter is pitching or offering their own services/products/solutions.
+
+2. BUYER INTENT ("buy"):
+   - When responding to a SELLER post (e.g. vendor offering services/products): The commenter is a prospective buyer/client interested in buying, requesting pricing/quotes ("how much?", "מעוניין", "כמה עולה"), asking for a demo, or asking to be contacted.
+   - When responding to a BUYER post: The commenter states that they also need the same service/product ("I need this too", "מחפש גם").
+
+3. NONE ("none"):
+   - General banter, opinions, simple compliments/cheerleading ("בהצלחה", "great job!"), tagging someone without offer/pitch, technical debates, or unrelated remarks without buying or selling intent.
+
+Respond strictly with a JSON array matching this exact schema:
+[
+  {
+    "id": "comment_id",
+    "intentType": "buy" | "sell" | "none",
+    "confidenceScore": number,
+    "summary": "1 concise sentence in the language of the post or English explaining what the commenter is offering or requesting in context of the post"
+  }
+]`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" },
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (rawJson) {
+        const parsedList = JSON.parse(rawJson);
+        if (Array.isArray(parsedList)) {
+          for (const item of parsedList) {
+            const comment = validComments.find((c) => c.id === item.id) || validComments[item.index];
+            if (comment) {
+              const intentType: "buy" | "sell" | "none" =
+                item.intentType === "buy" || item.intentType === "sell" ? item.intentType : "none";
+              const hasIntent = intentType !== "none";
+              const clean = comment.text.replace(/[\n\r]+/g, " ").trim();
+              const title = clean.length > 80 ? clean.substring(0, 75) + "..." : clean;
+
+              results.set(comment.id, {
+                hasIntent,
+                intentType,
+                isBuyerIntent: intentType === "buy",
+                isSellerIntent: intentType === "sell",
+                confidenceScore:
+                  typeof item.confidenceScore === "number"
+                    ? item.confidenceScore
+                    : hasIntent
+                    ? 0.95
+                    : 0.1,
+                category: "Software & AI",
+                titleEn: title,
+                summaryEn: item.summary || clean,
+                translatedTextEn: comment.text,
+                urgency: "medium",
+                matchedKeywords: ["gemini-comment-classifier"],
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Gemini batch comment classification failed, applying heuristic fallback:", err);
+  }
+
+  // Fallback for any comments not classified yet
+  for (const comment of validComments) {
+    if (!results.has(comment.id)) {
+      results.set(comment.id, fallbackAnalyzeComment(comment.text, postContext.intentType));
+    }
+  }
+
+  return results;
+}
+
+// Single comment classifier helper
+export async function analyzeCommentIntent(
+  commentText: string,
+  postContext: PostContext,
+  authorName?: string
+): Promise<IntentAnalysisResult> {
+  const tempId = "temp_comment";
+  const map = await analyzeBatchCommentsIntent(
+    [{ id: tempId, text: commentText, authorName }],
+    postContext
+  );
+  return map.get(tempId) || fallbackAnalyzeComment(commentText, postContext.intentType);
 }
 
 // Backward-compatible alias
