@@ -44,9 +44,15 @@ export default function ScanStatusBar({ sources }: ScanStatusBarProps) {
     .filter((s) => s.lastScrapedAt)
     .sort((a, b) => (b.lastScrapedAt || 0) - (a.lastScrapedAt || 0))[0];
 
-  // Find next upcoming source to scan
+  // Find next upcoming source to scan (periodic scrapers only - exclude real-time webhook sources)
   const nextScheduled = [...sources]
-    .filter((s) => s.status === "active" && s.nextScheduledScanAt)
+    .filter(
+      (s) =>
+        s.status === "active" &&
+        s.platform !== "whatsapp" &&
+        s.nextScheduledScanAt &&
+        s.nextScheduledScanAt > 0
+    )
     .sort((a, b) => (a.nextScheduledScanAt || 0) - (b.nextScheduledScanAt || 0))[0];
 
   // Format countdown for next scheduled scan

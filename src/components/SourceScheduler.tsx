@@ -158,6 +158,12 @@ export default function SourceScheduler({
   });
 
   const sortedMonitoredSources = [...filteredMonitoredSources].sort((a, b) => {
+    if (sortField === "nextScheduledScanAt") {
+      const timeA = a.platform === "whatsapp" || !a.nextScheduledScanAt ? (sortDir === "asc" ? Infinity : -Infinity) : a.nextScheduledScanAt;
+      const timeB = b.platform === "whatsapp" || !b.nextScheduledScanAt ? (sortDir === "asc" ? Infinity : -Infinity) : b.nextScheduledScanAt;
+      return sortDir === "asc" ? timeA - timeB : timeB - timeA;
+    }
+
     let valA: any = a[sortField];
     let valB: any = b[sortField];
 

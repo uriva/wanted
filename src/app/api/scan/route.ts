@@ -16,8 +16,14 @@ export async function POST(req: Request) {
 
     const now = Date.now();
     const sourcesToScan = forceAll
-      ? sources
-      : sources.filter((s) => s.status === "active" && (s.nextScheduledScanAt || 0) <= now);
+      ? sources.filter((s) => s.platform !== "whatsapp")
+      : sources.filter(
+          (s) =>
+            s.status === "active" &&
+            s.platform !== "whatsapp" &&
+            (s.nextScheduledScanAt || 0) > 0 &&
+            (s.nextScheduledScanAt || 0) <= now
+        );
 
     const results = [];
     for (const source of sourcesToScan) {

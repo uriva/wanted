@@ -132,7 +132,7 @@ export async function POST(req: Request) {
           decayMultiplier: 1.5,
           consecutiveEmptyScrapes: 0,
           lastScrapedAt: now,
-          nextScheduledScanAt: now + 60 * 60 * 1000,
+          nextScheduledScanAt: 0,
           totalPostsScanned: 1,
           totalIntentsFound: 1,
           createdAt: now,
