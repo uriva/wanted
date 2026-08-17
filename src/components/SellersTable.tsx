@@ -21,6 +21,7 @@ interface IntentItem {
     profileUrl: string;
     avatarUrl?: string;
     platform: string;
+    externalAuthorId?: string;
   };
 }
 
@@ -48,8 +49,43 @@ function formatRelativeTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-function SellerAvatar({ name, avatarUrl }: { name?: string; avatarUrl?: string }) {
+function SellerAvatar({
+  name,
+  avatarUrl,
+  platform,
+  externalAuthorId,
+}: {
+  name?: string;
+  avatarUrl?: string;
+  platform?: string;
+  externalAuthorId?: string;
+}) {
   const [imgError, setImgError] = useState(false);
+  const [fallbackTried, setFallbackTried] = useState(false);
+
+  const isNumericFbId =
+    platform === "facebook" &&
+    externalAuthorId &&
+    /^\d+$/.test(externalAuthorId) &&
+    externalAuthorId.length < 15;
+
+  let currentSrc = avatarUrl;
+  if (!currentSrc && isNumericFbId) {
+    currentSrc = `https://graph.facebook.com/${externalAuthorId}/picture?type=large`;
+  }
+
+  const handleImgError = () => {
+    if (!fallbackTried && isNumericFbId && currentSrc !== `https://graph.facebook.com/${externalAuthorId}/picture?type=large`) {
+      setFallbackTried(true);
+    } else {
+      setImgError(true);
+    }
+  };
+
+  const effectiveSrc = fallbackTried && isNumericFbId
+    ? `https://graph.facebook.com/${externalAuthorId}/picture?type=large`
+    : currentSrc;
+
   const initials = (name || "S")
     .split(" ")
     .map((n) => n[0])
@@ -59,11 +95,11 @@ function SellerAvatar({ name, avatarUrl }: { name?: string; avatarUrl?: string }
 
   return (
     <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 font-semibold text-xs shrink-0 overflow-hidden">
-      {avatarUrl && !imgError ? (
+      {effectiveSrc && !imgError ? (
         <img
-          src={avatarUrl}
+          src={effectiveSrc}
           alt={name || "Seller"}
-          onError={() => setImgError(true)}
+          onError={handleImgError}
           className="w-full h-full rounded-full object-cover"
         />
       ) : (
@@ -150,7 +186,12 @@ export default function SellersTable({ intents, onSelectIntent }: SellersTablePr
                   {/* Person Column */}
                   <td className="py-3.5 px-4 sm:px-6 whitespace-nowrap">
                     <div className="flex items-center space-x-3">
-                      <SellerAvatar name={item.buyer?.name} avatarUrl={item.buyer?.avatarUrl} />
+                      <SellerAvatar
+                        name={item.buyer?.name}
+                        avatarUrl={item.buyer?.avatarUrl}
+                        platform={item.buyer?.platform || item.platform}
+                        externalAuthorId={item.buyer?.externalAuthorId}
+                      />
                       <div>
                         <span className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-black dark:group-hover:text-white transition-colors block text-xs">
                           {item.buyer?.name || "Anonymous Seller"}

@@ -48,7 +48,13 @@ function PlatformLogo({ platform, className = "w-4 h-4" }: { platform?: string; 
 
 export default function IntentDetailModal({ intent, onClose }: IntentDetailModalProps) {
   const [imgError, setImgError] = useState(false);
+  const [fallbackTried, setFallbackTried] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+    setFallbackTried(false);
+  }, [intent?.id]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,9 +72,34 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
 
   if (!intent) return null;
 
+  const authorExternalId = intent.buyer?.externalAuthorId;
+  const platform = intent.buyer?.platform || intent.platform;
+  const isNumericFbId =
+    platform === "facebook" &&
+    authorExternalId &&
+    /^\d+$/.test(authorExternalId) &&
+    authorExternalId.length < 15;
+
+  let currentSrc = intent.buyer?.avatarUrl;
+  if (!currentSrc && isNumericFbId) {
+    currentSrc = `https://graph.facebook.com/${authorExternalId}/picture?type=large`;
+  }
+
+  const handleImgError = () => {
+    if (!fallbackTried && isNumericFbId && currentSrc !== `https://graph.facebook.com/${authorExternalId}/picture?type=large`) {
+      setFallbackTried(true);
+    } else {
+      setImgError(true);
+    }
+  };
+
+  const effectiveSrc = fallbackTried && isNumericFbId
+    ? `https://graph.facebook.com/${authorExternalId}/picture?type=large`
+    : currentSrc;
+
   const profileUrl =
-    intent.buyer?.externalAuthorId && intent.buyer.externalAuthorId !== "fb_anon" && /^\d+$/.test(intent.buyer.externalAuthorId)
-      ? `https://www.facebook.com/${intent.buyer.externalAuthorId}`
+    authorExternalId && authorExternalId !== "fb_anon" && /^\d+$/.test(authorExternalId)
+      ? `https://www.facebook.com/${authorExternalId}`
       : intent.buyer?.profileUrl || intent.postUrl;
 
   const buyerName = intent.buyer?.name || "Anonymous Buyer";
@@ -135,11 +166,11 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
             title={`View ${buyerName}'s Profile`}
             className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 hover:border-black dark:hover:border-white flex items-center justify-center text-zinc-900 dark:text-white font-bold text-sm shrink-0 overflow-hidden transition-all hover:scale-105 cursor-pointer shadow-sm group"
           >
-            {intent.buyer?.avatarUrl && !imgError ? (
+            {effectiveSrc && !imgError ? (
               <img
-                src={intent.buyer.avatarUrl}
+                src={effectiveSrc}
                 alt={buyerName}
-                onError={() => setImgError(true)}
+                onError={handleImgError}
                 className="w-full h-full rounded-full object-cover group-hover:opacity-90 transition-opacity"
               />
             ) : (

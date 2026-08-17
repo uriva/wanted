@@ -51,6 +51,13 @@ export async function POST(req: Request) {
     let sourceName = body.chat?.title || body.sourceName || `Supergreen ${platform}`;
     let chatId = body.chat?.id || body.chatId || "supergreen_chat";
     let publishedAt = body.time ? Number(body.time) : Date.now();
+    let authorAvatarUrl =
+      body.authorAvatarUrl ||
+      body.author?.avatar ||
+      body.author?.avatarUrl ||
+      body.author?.image ||
+      body.author?.profile_picture ||
+      body.author?.picture;
 
     // Filter WhatsApp groups: ONLY process messages from relevant tech/business/automation groups!
     if (platform === "whatsapp" && !isRelevantGroup(chatId, sourceName)) {
@@ -156,12 +163,17 @@ export async function POST(req: Request) {
     const txs: any[] = [];
     if (existingBuyer) {
       buyerId = existingBuyer.id;
-      txs.push(
-        adminDb.tx.buyers[buyerId].update({
-          totalIntentPosts: (existingBuyer.totalIntentPosts || 1) + 1,
-          updatedAt: now,
-        })
-      );
+      const updateData: any = {
+        totalIntentPosts: (existingBuyer.totalIntentPosts || 1) + 1,
+        updatedAt: now,
+      };
+      if (authorAvatarUrl && (!existingBuyer.avatarUrl || existingBuyer.avatarUrl.length < 5)) {
+        updateData.avatarUrl = authorAvatarUrl;
+      }
+      if (profileUrl && (!existingBuyer.profileUrl || existingBuyer.profileUrl === "#")) {
+        updateData.profileUrl = profileUrl;
+      }
+      txs.push(adminDb.tx.buyers[buyerId].update(updateData));
     } else {
       buyerId = id();
       txs.push(
@@ -170,6 +182,7 @@ export async function POST(req: Request) {
           platform,
           externalAuthorId: authorExternalId,
           profileUrl,
+          avatarUrl: authorAvatarUrl,
           totalIntentPosts: 1,
           createdAt: now,
           updatedAt: now,

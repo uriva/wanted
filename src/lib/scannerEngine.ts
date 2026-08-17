@@ -34,6 +34,40 @@ export interface NormalizedPost {
   comments?: NormalizedComment[];
 }
 
+export function extractFacebookAvatarUrl(author: any, authorId?: string): string | undefined {
+  if (!author && !authorId) return undefined;
+
+  // 1. Direct high-res profile picture from ScrapeCreators
+  const directPic =
+    author?.profile_picture ||
+    author?.image ||
+    author?.profile_picture_depth_0_increased?.uri ||
+    author?.profile_picture_depth_0?.uri ||
+    author?.profile_picture_depth_1?.uri ||
+    author?.avatarUrl ||
+    author?.avatar;
+
+  if (directPic && typeof directPic === "string" && directPic.startsWith("http")) {
+    return directPic;
+  }
+
+  // 2. Numeric User ID fallback (Facebook Graph API 302 redirect)
+  const cleanId = String(author?.id || authorId || "").trim();
+  if (cleanId && /^\d+$/.test(cleanId) && cleanId.length < 15) {
+    return `https://graph.facebook.com/${cleanId}/picture?type=large`;
+  }
+
+  // 3. Extract numeric ID from profile URL if present
+  if (author?.url && typeof author.url === "string") {
+    const match = author.url.match(/(?:profile\.php\?id=|\/profile\/|\/user\/|facebook\.com\/)(\d{5,14})(?:[/?#]|$)/);
+    if (match && match[1]) {
+      return `https://graph.facebook.com/${match[1]}/picture?type=large`;
+    }
+  }
+
+  return undefined;
+}
+
 function normalizeFacebookAuthorProfileUrl(authorId?: string, rawUrl?: string, fallbackUrl?: string): string {
   if (rawUrl && rawUrl.startsWith("http")) return rawUrl;
   if (authorId && authorId !== "fb_anon") {
@@ -58,12 +92,7 @@ function parseFacebookComments(rawComments: any[], parentPostUrl: string, parent
       ? (c.publishTime > 1e11 ? c.publishTime : c.publishTime * 1000)
       : (c.creation_time ? new Date(c.creation_time).getTime() : parentPubTime);
 
-    const profilePicture =
-      author.profile_picture ||
-      author.profile_picture_depth_0?.uri ||
-      author.profile_picture_depth_0_increased?.uri ||
-      author.image ||
-      undefined;
+    const profilePicture = extractFacebookAvatarUrl(author, authorId);
 
     comments.push({
       externalCommentId: String(c.id || id()),
@@ -166,12 +195,17 @@ export async function fetchPostsFromPlatform(
 
             const comments = parseFacebookComments(data.comments || [], postUrl, pubTime);
 
+            const authorAvatar =
+              extractFacebookAvatarUrl(data.author, authorId) ||
+              data.image ||
+              undefined;
+
             posts.push({
               externalPostId: String(data.post_id || id()),
               authorName,
               authorExternalId: authorId,
               authorProfileUrl: normalizeFacebookAuthorProfileUrl(authorId, author.url, postUrl),
-              authorAvatarUrl: data.image || author.image || author.profile_picture || undefined,
+              authorAvatarUrl: authorAvatar,
               postUrl,
               originalText: data.description || "",
               publishedAt: pubTime,
@@ -203,13 +237,14 @@ export async function fetchPostsFromPlatform(
 
             const rawComments = item.topComments || item.comments || [];
             const comments = parseFacebookComments(rawComments, postUrl, pubTime);
+            const authorAvatar = extractFacebookAvatarUrl(author, authorId);
 
             posts.push({
               externalPostId: String(item.id || id()),
               authorName,
               authorExternalId: authorId,
               authorProfileUrl: normalizeFacebookAuthorProfileUrl(authorId, author.url, postUrl),
-              authorAvatarUrl: item.image || undefined,
+              authorAvatarUrl: authorAvatar,
               postUrl,
               originalText: item.text || "",
               publishedAt: pubTime,
@@ -304,14 +339,28 @@ export async function scanSource(sourceId: string) {
     if (stagedBuyers.has(key)) {
       const existingId = stagedBuyers.get(key)!;
       const existingObj = buyers.find((b) => b.id === existingId);
-      txs.push(
-        adminDb.tx.buyers[existingId].update({
-          totalIntentPosts: (existingObj?.totalIntentPosts || 1) + 1,
-          updatedAt: now,
-        })
-      );
+      const updateData: any = {
+        totalIntentPosts: (existingObj?.totalIntentPosts || 1) + 1,
+        updatedAt: now,
+      };
+
+      // Backfill or update avatar if existing buyer lacked an avatar
+      if (avatarUrl && (!existingObj?.avatarUrl || existingObj.avatarUrl.length < 5)) {
+        updateData.avatarUrl = avatarUrl;
+      }
+      if (profileUrl && (!existingObj?.profileUrl || existingObj?.profileUrl === "#")) {
+        updateData.profileUrl = profileUrl;
+      }
+
+      txs.push(adminDb.tx.buyers[existingId].update(updateData));
       return existingId;
     }
+
+    const resolvedAvatar =
+      avatarUrl ||
+      (source.platform === "facebook"
+        ? extractFacebookAvatarUrl(null, authorExternalId)
+        : undefined);
 
     const newBuyerId = id();
     stagedBuyers.set(key, newBuyerId);
@@ -321,7 +370,7 @@ export async function scanSource(sourceId: string) {
         platform: source.platform,
         externalAuthorId: authorExternalId,
         profileUrl,
-        avatarUrl,
+        avatarUrl: resolvedAvatar,
         totalIntentPosts: 1,
         createdAt: now,
         updatedAt: now,
@@ -398,9 +447,26 @@ export async function scanSource(sourceId: string) {
     if (postIntentType === "buy" || postIntentType === "sell") {
       let comments = post.comments || [];
 
-      // If comments were not included in initial scrape (e.g. reddit or deep facebook post), fetch them
-      if (comments.length === 0 && (source.platform === "facebook" || source.platform === "reddit")) {
-        comments = await fetchCommentsForPost(source.platform, post.postUrl, post.publishedAt);
+      // For Facebook & Reddit: fetch full deep comments if missing or if comments lack avatars/rich data
+      if (source.platform === "facebook" || source.platform === "reddit" || comments.length === 0) {
+        const deepComments = await fetchCommentsForPost(source.platform, post.postUrl, post.publishedAt);
+        if (deepComments && deepComments.length > 0) {
+          const commentMap = new Map<string, NormalizedComment>();
+          for (const c of comments) commentMap.set(c.externalCommentId, c);
+          for (const c of deepComments) {
+            const existing = commentMap.get(c.externalCommentId);
+            if (existing) {
+              commentMap.set(c.externalCommentId, {
+                ...existing,
+                ...c,
+                authorAvatarUrl: c.authorAvatarUrl || existing.authorAvatarUrl,
+              });
+            } else {
+              commentMap.set(c.externalCommentId, c);
+            }
+          }
+          comments = Array.from(commentMap.values());
+        }
       }
 
       // Filter unhandled comments for this post
