@@ -330,13 +330,6 @@ export async function fetchPostsFromPlatform(
             const comments = parseFacebookComments(rawComments, postUrl, pubTime);
             const authorAvatar = extractFacebookAvatarUrl(author, authorId);
 
-            const authorAvatar =
-              author.image ||
-              author.profile_picture ||
-              author.profile_picture_depth_0?.uri ||
-              author.profile_picture_url ||
-              undefined;
-
             posts.push({
               externalPostId: String(item.id || id()),
               authorName,
