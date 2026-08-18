@@ -39,11 +39,14 @@ export function cleanSummaryPhoneNumbers(summary?: string): string {
     .trim();
 }
 
-export async function analyzePostIntent(text: string): Promise<IntentAnalysisResult> {
+export async function analyzePostIntent(
+  text: string,
+  contextTranscript?: string
+): Promise<IntentAnalysisResult> {
   const clean = text.replace(/[\n\r]+/g, " ").trim();
   const title = clean.length > 80 ? clean.substring(0, 75) + "..." : clean;
 
-  if (!text || text.trim().length < 5) {
+  if (!text || text.trim().length < 2) {
     return {
       hasIntent: false,
       intentType: "none",
@@ -63,22 +66,26 @@ export async function analyzePostIntent(text: string): Promise<IntentAnalysisRes
     const key = GEMINI_API_KEY;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${key}`;
 
+    const contextSection = contextTranscript && contextTranscript.trim()
+      ? `\nCONVERSATION THREAD CONTEXT (Preceding messages in this group discussion):\n${contextTranscript.trim()}\n`
+      : "";
+
     const prompt = `You are an expert Social Marketplace Intent Classifier.
-Analyze the following social media post to identify whether the author expresses BUYER intent or SELLER intent:
+Analyze the following message${contextSection ? " within its conversation thread context" : ""} to identify whether the author expresses BUYER intent or SELLER intent:
 
-1. BUYER INTENT ("buy"): The author is a client/buyer looking to purchase products, hire a freelancer/agency/developer, request a service, or pay for custom development/solutions. (e.g. "Looking for a developer to build X", "מחפש מעצב", "דרוש מתכנת", "Anyone selling X?", "Need someone to fix our database").
+1. BUYER INTENT ("buy"): The author is a client/buyer looking to purchase products, hire a freelancer/agency/developer, request a service, or pay for custom development/solutions. (e.g. "Looking for a developer to build X", "מחפש מעצב", "דרוש מתכנת", "Anyone selling X?", "Need someone to fix our database", "I'm interested in buying this, how much?").
 
-2. SELLER INTENT ("sell"): The author is an agency, vendor, or freelancer actively offering/selling services, software products, freelancing capacity, SaaS tools, templates, or consulting. (e.g. "I offer custom automation services", "אני מציע שירותי פיתוח", "For sale: MacBook Pro", "למכירה", "Available for freelance projects", "We just launched tool X and offering setups").
+2. SELLER INTENT ("sell"): The author is an agency, vendor, or freelancer actively offering/selling services, software products, freelancing capacity, SaaS tools, templates, or consulting. (e.g. "I offer custom automation services", "אני מציע שירותי פיתוח", "For sale: MacBook Pro", "למכירה", "Available for freelance projects", "I can build this bot for you, DM me").
 
-3. NONE ("none"): General discussions, technical questions, tutorials, news, personal opinions, memes, or tech reflections without an active buy or sell proposition.
-
-Post: "${clean.replace(/"/g, '\\"')}"
+3. NONE ("none"): General discussions, technical questions, tutorials, news, personal opinions, memes, simple reactions ("great!", "+1"), or tech reflections without an active buy or sell proposition.
+${contextSection}
+Target Message: "${clean.replace(/"/g, '\\"')}"
 
 Respond strictly with a JSON object in this exact format:
 {
   "intentType": "buy" | "sell" | "none",
   "confidenceScore": number,
-  "summary": "1 concise normalized sentence strictly in English stating what the person is looking to buy/hire or what they are offering/selling (e.g. 'Looking to hire a developer to build an autonomous WhatsApp agent with conversation memory')."
+  "summary": "1 concise normalized sentence strictly in English stating what the person is looking to buy/hire or what they are offering/selling in context of the discussion (e.g. 'Offering custom WhatsApp bot development services in response to project inquiry')."
 }`;
 
     const res = await fetch(url, {

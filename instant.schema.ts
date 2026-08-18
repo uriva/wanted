@@ -63,6 +63,25 @@ const _schema = i.schema({
       status: i.string().indexed(),
       message: i.string().optional(),
     }),
+    messages: i.entity({
+      chatId: i.string().indexed(),
+      chatName: i.string(),
+      authorId: i.string().indexed(),
+      authorName: i.string(),
+      text: i.string(),
+      textSearch: i.string().indexed(),
+      time: i.number().indexed(),
+      waMsgId: i.string().indexed().optional(),
+      quotedWaMsgId: i.string().indexed().optional(),
+      avatar: i.string().optional(),
+      createdAt: i.number().indexed(),
+    }),
+    threads: i.entity({
+      chatId: i.string().indexed(),
+      chatName: i.string(),
+      lastMessageAt: i.number().indexed(),
+      createdAt: i.number().indexed(),
+    }),
   },
   links: {
     sourceIntents: {
@@ -76,6 +95,14 @@ const _schema = i.schema({
     sourceLogs: {
       forward: { on: "scan_logs", has: "one", label: "source" },
       reverse: { on: "sources", has: "many", label: "logs" },
+    },
+    threadMessages: {
+      forward: { on: "messages", has: "one", label: "thread" },
+      reverse: { on: "threads", has: "many", label: "messages" },
+    },
+    threadIntents: {
+      forward: { on: "intents", has: "one", label: "thread" },
+      reverse: { on: "threads", has: "many", label: "intents" },
     },
   },
 });

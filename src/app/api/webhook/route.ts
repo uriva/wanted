@@ -3,6 +3,17 @@ import { adminDb } from "@/lib/adminDb";
 import { id } from "@instantdb/admin";
 import { analyzePostIntent } from "@/lib/intentClassifier";
 import { extractSuggestedSourcesFromText } from "@/lib/scannerEngine";
+import { extractPhoneInfo } from "@/lib/phoneUtils";
+import {
+  assignThreadForMessage,
+  formatContextTranscript,
+  injectGetMessageByWaMsgId,
+  injectThreadAssignmentDetector,
+  threadAssignmentSystemPrompt,
+  toTextSearch,
+  type ContextMessageItem,
+  type MessageLike,
+} from "@uri/chat-threads";
 
 // Exact full-word keywords that identify a relevant WhatsApp tech/business/automation group
 const RELEVANT_GROUP_KEYWORDS = [
@@ -40,6 +51,57 @@ function isRelevantGroup(chatId: string, groupTitle: string): boolean {
   });
 }
 
+const geminiThreadDetector = async (userPrompt: string) => {
+  try {
+    const key = process.env.GEMINI_API_KEY || "";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${key}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          { role: "user", parts: [{ text: `${threadAssignmentSystemPrompt}\n\n${userPrompt}` }] },
+        ],
+        generationConfig: { responseMimeType: "application/json" },
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (rawJson) {
+        const parsed = JSON.parse(rawJson);
+        return {
+          continuesIndex:
+            typeof parsed.continuesIndex === "number" ? parsed.continuesIndex : null,
+        };
+      }
+    }
+  } catch (e) {
+    console.error("[ThreadAssignment] Gemini error:", e);
+  }
+  return { continuesIndex: null };
+};
+
+const getDbMessageByWaMsgId = async (waMsgId: string): Promise<MessageLike | null> => {
+  const { messages } = await adminDb.query({
+    messages: {
+      $: { where: { waMsgId }, limit: 1 },
+    },
+  });
+  if (!messages || messages.length === 0) return null;
+  const m = messages[0];
+  return {
+    id: m.id,
+    chatId: m.chatId,
+    authorId: m.authorId,
+    authorName: m.authorName,
+    text: m.text,
+    time: m.time,
+    waMsgId: m.waMsgId,
+    quotedWaMsgId: m.quotedWaMsgId,
+  };
+};
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -52,6 +114,8 @@ export async function POST(req: Request) {
     let sourceName = body.chat?.title || body.sourceName || `Supergreen ${platform}`;
     let chatId = body.chat?.id || body.chatId || "supergreen_chat";
     let publishedAt = body.time ? Number(body.time) : Date.now();
+    let waMsgId = body.messageId || body.id || body.waMsgId;
+    let quotedWaMsgId = body.quotedMsgId || body.quotedMessageId || body.quotedWaMsgId;
     let authorAvatarUrl =
       body.authorAvatarUrl ||
       body.author?.avatar ||
@@ -82,7 +146,7 @@ export async function POST(req: Request) {
 
     let postUrl = body.postUrl || profileUrl;
 
-    if (!text || text.trim().length < 5) {
+    if (!text || text.trim().length < 2) {
       return NextResponse.json({ success: false, error: "Text too short or missing" }, { status: 400 });
     }
 
@@ -144,8 +208,116 @@ export async function POST(req: Request) {
       });
     }
 
-    // Run Gemini AI Buyer / Seller Intent Classification
-    const analysis = await analyzePostIntent(text);
+    let threadContextTranscript = "";
+    let threadId: string | null = null;
+
+    if (platform === "whatsapp") {
+      // 1. Save message entity in InstantDB
+      const msgId = id();
+      await adminDb.transact([
+        adminDb.tx.messages[msgId].create({
+          chatId,
+          chatName: sourceName,
+          authorId: authorExternalId,
+          authorName,
+          text,
+          textSearch: toTextSearch(text),
+          time: publishedAt,
+          waMsgId,
+          quotedWaMsgId,
+          avatar: authorAvatarUrl,
+          createdAt: now,
+        }),
+      ]);
+
+      // 2. Query recent messages in chat for context threading
+      const { messages: recentDbMessages, threads: existingThreads } = await adminDb.query({
+        messages: {
+          $: { where: { chatId }, order: { time: "desc" }, limit: 25 },
+          thread: {},
+        },
+        threads: {
+          $: { where: { chatId }, order: { lastMessageAt: "desc" }, limit: 25 },
+        },
+      });
+
+      const sortedRecent = (recentDbMessages || [])
+        .filter((m: any) => m.id !== msgId)
+        .sort((a: any, b: any) => a.time - b.time);
+
+      const contextItems: ContextMessageItem<MessageLike>[] = sortedRecent.map((m: any) => ({
+        msgId: m.id,
+        threadId: m.thread?.id || null,
+        message: {
+          id: m.id,
+          chatId: m.chatId,
+          authorId: m.authorId,
+          authorName: m.authorName,
+          text: m.text,
+          time: m.time,
+          waMsgId: m.waMsgId,
+          quotedWaMsgId: m.quotedWaMsgId,
+        },
+      }));
+
+      // 3. Assign message to thread with @uri/chat-threads
+      const newMessageLike: MessageLike = {
+        id: msgId,
+        chatId,
+        authorId: authorExternalId,
+        authorName,
+        text,
+        time: publishedAt,
+        waMsgId,
+        quotedWaMsgId,
+      };
+
+      const assignResult = await injectThreadAssignmentDetector(geminiThreadDetector)(async () => {
+        return injectGetMessageByWaMsgId(getDbMessageByWaMsgId)(async () => {
+          return assignThreadForMessage(msgId, newMessageLike, contextItems, {
+            createThread: async () => {
+              const newTid = id();
+              await adminDb.transact([
+                adminDb.tx.threads[newTid].create({
+                  chatId,
+                  chatName: sourceName,
+                  lastMessageAt: publishedAt,
+                  createdAt: publishedAt,
+                }),
+              ]);
+              return newTid;
+            },
+          });
+        })();
+      })();
+
+      threadId = assignResult.threadId;
+
+      if (threadId) {
+        // Link message to thread and update thread lastMessageAt
+        await adminDb.transact([
+          adminDb.tx.messages[msgId].link({ thread: threadId }),
+          adminDb.tx.threads[threadId].update({ lastMessageAt: publishedAt }),
+        ]);
+
+        // Build transcript of the thread so far
+        const { threads: threadDetails } = await adminDb.query({
+          threads: {
+            $: { where: { id: threadId }, limit: 1 },
+            messages: { $: { order: { time: "asc" } } },
+          },
+        });
+
+        const threadMsgs = threadDetails?.[0]?.messages || [];
+        if (threadMsgs.length > 1) {
+          const priorMsgs = threadMsgs.filter((m: any) => m.id !== msgId);
+          threadContextTranscript = formatContextTranscript(priorMsgs);
+        }
+      }
+    }
+
+    // Run Gemini AI Buyer / Seller Intent Classification with conversation thread context
+    const analysis = await analyzePostIntent(text, threadContextTranscript);
 
     if (!analysis.hasIntent) {
       return NextResponse.json({
@@ -153,6 +325,7 @@ export async function POST(req: Request) {
         matched: false,
         message: "Post processed, but did not match buyer or seller intent criteria.",
         analysis,
+        threadId,
       });
     }
 
@@ -192,6 +365,10 @@ export async function POST(req: Request) {
       ]);
     }
 
+    // Extract contact phone info
+    const phoneInfo = extractPhoneInfo(text, authorExternalId);
+    const contactInfo = phoneInfo?.e164;
+
     // Find or create buyer entity
     let buyerId: string;
     const existingBuyer = buyers.find((b) => b.externalAuthorId === authorExternalId);
@@ -203,6 +380,9 @@ export async function POST(req: Request) {
         totalIntentPosts: (existingBuyer.totalIntentPosts || 1) + 1,
         updatedAt: now,
       };
+      if (contactInfo && (!existingBuyer.contactInfo || existingBuyer.contactInfo.length < 5)) {
+        updateData.contactInfo = contactInfo;
+      }
       if (authorAvatarUrl && (!existingBuyer.avatarUrl || existingBuyer.avatarUrl.length < 5)) {
         updateData.avatarUrl = authorAvatarUrl;
       }
@@ -219,6 +399,7 @@ export async function POST(req: Request) {
           externalAuthorId: authorExternalId,
           profileUrl,
           avatarUrl: authorAvatarUrl,
+          contactInfo,
           totalIntentPosts: 1,
           createdAt: now,
           updatedAt: now,
@@ -228,30 +409,34 @@ export async function POST(req: Request) {
 
     // Create Intent entity
     const intentId = id();
-    txs.push(
-      adminDb.tx.intents[intentId]
-        .create({
-          externalPostId: id(),
-          title: analysis.titleEn,
-          summary: analysis.summaryEn,
-          originalText: text,
-          translatedText: analysis.translatedTextEn,
-          platform,
-          postUrl,
-          intentType: analysis.intentType,
-          category: analysis.category,
-          budget: analysis.budget,
-          urgency: analysis.urgency,
-          confidenceScore: analysis.confidenceScore,
-          matchedKeywords: JSON.stringify(analysis.matchedKeywords),
-          publishedAt,
-          scrapedAt: now,
-          status: "open",
-          createdAt: now,
-        })
-        .link({ source: sourceId })
-        .link({ buyer: buyerId })
-    );
+    const intentTx = adminDb.tx.intents[intentId]
+      .create({
+        externalPostId: waMsgId || id(),
+        title: analysis.titleEn,
+        summary: analysis.summaryEn,
+        originalText: text,
+        translatedText: analysis.translatedTextEn,
+        platform,
+        postUrl,
+        intentType: analysis.intentType,
+        category: analysis.category,
+        budget: analysis.budget,
+        urgency: analysis.urgency,
+        confidenceScore: analysis.confidenceScore,
+        matchedKeywords: JSON.stringify(analysis.matchedKeywords),
+        publishedAt,
+        scrapedAt: now,
+        status: "open",
+        createdAt: now,
+      })
+      .link({ source: sourceId })
+      .link({ buyer: buyerId });
+
+    if (threadId) {
+      intentTx.link({ thread: threadId });
+    }
+
+    txs.push(intentTx);
 
     await adminDb.transact(txs);
 
@@ -261,6 +446,7 @@ export async function POST(req: Request) {
       intentId,
       buyerId,
       sourceId,
+      threadId,
       analysis,
     });
   } catch (error: any) {
