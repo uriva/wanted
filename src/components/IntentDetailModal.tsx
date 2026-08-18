@@ -1,11 +1,63 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, ExternalLink, Link as LinkIcon, Check } from "lucide-react";
+import { X, ExternalLink, Link as LinkIcon, Check, MessageSquare, CornerDownRight, Phone } from "lucide-react";
+import { extractPhoneInfo } from "@/lib/phoneUtils";
 
 interface IntentDetailModalProps {
   intent: any;
   onClose: () => void;
+  allIntents?: any[];
+}
+
+function decodeFacebookCommentId(idStr?: string): string | null {
+  if (!idStr) return null;
+  const str = String(idStr);
+
+  if (str.startsWith("Y29tbWVud") || /^[A-Za-z0-9+/=]+$/.test(str)) {
+    try {
+      const decoded = typeof window !== "undefined" ? atob(str) : Buffer.from(str, "base64").toString("utf-8");
+      if (decoded.includes("comment:") || decoded.includes("_")) {
+        const m = decoded.match(/_(\d+)/) || decoded.match(/comment:(\d+)/);
+        if (m) return m[1];
+      }
+    } catch {}
+  }
+
+  const m = str.match(/_(\d+)$/) || str.match(/comment:?\d*_?(\d+)/);
+  if (m) return m[1];
+  if (/^\d{10,}$/.test(str)) return str;
+  return null;
+}
+
+function getDirectCommentLink(intent: any): string {
+  if (intent.commentUrl && intent.commentUrl !== intent.postUrl) {
+    return intent.commentUrl;
+  }
+  const platform = (intent.platform || "").toLowerCase();
+  const base = intent.postUrl || "";
+  if (platform === "facebook" && base) {
+    const commentId = decodeFacebookCommentId(intent.externalPostId);
+    if (commentId) {
+      try {
+        const u = new URL(base);
+        u.searchParams.set("comment_id", commentId);
+        return u.toString();
+      } catch {
+        const sep = base.includes("?") ? "&" : "?";
+        return `${base}${sep}comment_id=${commentId}`;
+      }
+    }
+  }
+  if (platform === "reddit" && base) {
+    if (intent.externalPostId) {
+      const cleanId = intent.externalPostId.replace(/^t1_/, "");
+      if (cleanId && !base.includes(cleanId)) {
+        return base.endsWith("/") ? `${base}${cleanId}/` : `${base}/${cleanId}/`;
+      }
+    }
+  }
+  return intent.commentUrl || intent.postUrl;
 }
 
 function PlatformLogo({ platform, className = "w-4 h-4" }: { platform?: string; className?: string }) {
@@ -46,7 +98,7 @@ function PlatformLogo({ platform, className = "w-4 h-4" }: { platform?: string; 
   return <ExternalLink className={className} />;
 }
 
-export default function IntentDetailModal({ intent, onClose }: IntentDetailModalProps) {
+export default function IntentDetailModal({ intent, onClose, allIntents }: IntentDetailModalProps) {
   const [imgError, setImgError] = useState(false);
   const [fallbackTried, setFallbackTried] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -110,6 +162,44 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
     .substring(0, 2)
     .toUpperCase();
 
+  // Detect whether this intent is from a comment
+  const isComment =
+    Boolean(intent.isComment) ||
+    Boolean(intent.parentPostText) ||
+    (intent.matchedKeywords && (intent.matchedKeywords.includes("comment") || intent.matchedKeywords.includes("comment-classifier"))) ||
+    (typeof intent.externalPostId === "string" && (intent.externalPostId.startsWith("Y29tbWVud") || intent.externalPostId.includes("comment:")));
+
+  // Resolve parent post context
+  let parentPostText = intent.parentPostText;
+  let parentAuthorName = intent.parentAuthorName;
+  let parentPostUrl = intent.parentPostUrl;
+
+  if (isComment && (!parentPostText || !parentAuthorName) && allIntents) {
+    const parent = allIntents.find((other: any) => {
+      if (other.id === intent.id) return false;
+      const otherIsComment =
+        other.isComment ||
+        (other.matchedKeywords && other.matchedKeywords.includes("comment")) ||
+        (other.externalPostId && other.externalPostId.startsWith("Y29tbWVud"));
+      if (otherIsComment) return false;
+      return other.postUrl === intent.postUrl || (intent.postUrl && intent.postUrl.includes(other.externalPostId));
+    });
+    if (parent) {
+      if (!parentPostText) parentPostText = parent.originalText || parent.title;
+      if (!parentAuthorName) parentAuthorName = parent.buyer?.name || "Original Author";
+      if (!parentPostUrl) parentPostUrl = parent.postUrl;
+    }
+  }
+
+  // Calculate direct link to the comment
+  const directCommentLink = getDirectCommentLink(intent);
+  const mainPostLink = parentPostUrl || intent.postUrl;
+
+  const phoneInfo = extractPhoneInfo(
+    `${intent.originalText || ""} ${intent.title || ""}`,
+    intent.buyer?.contactInfo
+  );
+
   const handleCopyLink = async () => {
     try {
       const url = new URL(window.location.origin + window.location.pathname);
@@ -121,6 +211,8 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
       console.error("Failed to copy link:", err);
     }
   };
+
+  const platformDisplayName = intent.platform === "twitter" ? "X / Twitter" : intent.platform || "Platform";
 
   return (
     <div
@@ -135,7 +227,7 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
           <button
             onClick={handleCopyLink}
             title="Copy deep link to this post"
-            className="text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors inline-flex items-center space-x-1.5"
+            className="text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors inline-flex items-center space-x-1.5 cursor-pointer"
           >
             {copied ? (
               <>
@@ -151,13 +243,13 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
           </button>
           <button
             onClick={onClose}
-            className="text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+            className="text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Header with Clickable Buyer Avatar & Name */}
+        {/* Modal Header with Clickable Buyer/Commenter Avatar & Name */}
         <div className="flex items-start space-x-4 pr-32">
           <a
             href={profileUrl}
@@ -178,7 +270,7 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
             )}
           </a>
           <div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
               <a
                 href={profileUrl}
                 target="_blank"
@@ -189,8 +281,27 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
                 {buyerName}
               </a>
               <span className="px-2 py-0.5 text-[10px] font-mono capitalize bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded">
-                {intent.platform === "twitter" ? "X / Twitter" : intent.platform}
+                {platformDisplayName}
               </span>
+              {phoneInfo && (
+                <a
+                  href={phoneInfo.waUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`Chat on WhatsApp: ${phoneInfo.display}`}
+                  className="px-2 py-0.5 text-[10px] font-mono font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80 rounded inline-flex items-center space-x-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer group/chip"
+                >
+                  <Phone className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>{phoneInfo.display}</span>
+                  <ExternalLink className="w-2 h-2 opacity-60 group-hover/chip:opacity-100" />
+                </a>
+              )}
+              {isComment && (
+                <span className="px-2 py-0.5 text-[10px] font-medium bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80 rounded inline-flex items-center space-x-1">
+                  <MessageSquare className="w-2.5 h-2.5" />
+                  <span>Comment Response</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-mono">
               Published {new Date(intent.publishedAt).toLocaleString()}
@@ -198,21 +309,54 @@ export default function IntentDetailModal({ intent, onClose }: IntentDetailModal
           </div>
         </div>
 
-        {/* Post Content Header Row with Logo Button */}
-        <div className="mt-6 space-y-1.5">
+        {/* If this is a comment response, show Original Post Context Card first */}
+        {isComment && (
+          <div className="mt-5 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 text-xs font-mono uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">
+                <CornerDownRight className="w-3.5 h-3.5" />
+                <span>Original Post {parentAuthorName ? `by ${parentAuthorName}` : "being responded to"}</span>
+              </div>
+              {mainPostLink && (
+                <a
+                  href={mainPostLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`Open original post on ${platformDisplayName}`}
+                  className="px-2 py-1 rounded-md text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 transition-colors inline-flex items-center space-x-1.5 group cursor-pointer"
+                >
+                  <PlatformLogo platform={intent.platform} className="w-3 h-3" />
+                  <span>View Original Post</span>
+                  <ExternalLink className="w-2.5 h-2.5 opacity-70 group-hover:opacity-100" />
+                </a>
+              )}
+            </div>
+            <div
+              dir="auto"
+              className="p-3.5 bg-blue-50/40 dark:bg-zinc-950/60 border border-blue-200/60 dark:border-blue-900/40 border-l-4 border-l-blue-500 dark:border-l-blue-400 rounded-r-lg text-xs text-zinc-800 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed max-h-44 overflow-y-auto hebrew-text"
+            >
+              {parentPostText || "Parent post context"}
+            </div>
+          </div>
+        )}
+
+        {/* Main Content (Comment or Post Content) */}
+        <div className="mt-5 space-y-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-              Post Content
+            <label className="text-xs font-mono uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block font-medium">
+              {isComment ? "Comment Content" : "Post Content"}
             </label>
-            {intent.postUrl && (
+            {directCommentLink && (
               <a
-                href={intent.postUrl}
+                href={directCommentLink}
                 target="_blank"
                 rel="noreferrer"
-                title={`Open post on ${intent.platform === "twitter" ? "X / Twitter" : intent.platform || "social network"}`}
-                className="p-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 transition-colors inline-flex items-center justify-center group"
+                title={isComment ? `Open this specific comment on ${platformDisplayName}` : `Open post on ${platformDisplayName}`}
+                className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 transition-colors inline-flex items-center space-x-1.5 group cursor-pointer"
               >
                 <PlatformLogo platform={intent.platform} className="w-3.5 h-3.5" />
+                <span>{isComment ? "Open Comment" : "Open Post"}</span>
+                <ExternalLink className="w-3 h-3 opacity-70 group-hover:opacity-100" />
               </a>
             )}
           </div>

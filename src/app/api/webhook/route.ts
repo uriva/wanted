@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/adminDb";
 import { id } from "@instantdb/admin";
 import { analyzePostIntent } from "@/lib/intentClassifier";
+import { extractSuggestedSourcesFromText } from "@/lib/scannerEngine";
 
 // Exact full-word keywords that identify a relevant WhatsApp tech/business/automation group
 const RELEVANT_GROUP_KEYWORDS = [
@@ -88,12 +89,47 @@ export async function POST(req: Request) {
     const now = Date.now();
     const normalizedText = text.trim().toLowerCase();
 
-    // Check existing intents in InstantDB for strict deduplication
+    // Check existing intents and sources in InstantDB for strict deduplication
     const { intents, buyers, sources } = await adminDb.query({
       intents: {},
       buyers: {},
       sources: {},
     });
+
+    // Detect and extract any shared WhatsApp group/channel or Facebook group links as suggested sources for review
+    const detectedSources = extractSuggestedSourcesFromText(text);
+    const existingSourceUrls = new Set(sources.map((s) => s.url?.toLowerCase().replace(/\/$/, "")));
+    const existingSourceExternalIds = new Set(sources.map((s) => s.externalId?.toLowerCase()));
+
+    for (const suggested of detectedSources) {
+      const cleanUrl = suggested.url.toLowerCase().replace(/\/$/, "");
+      const cleanId = suggested.externalId.toLowerCase();
+      if (!existingSourceUrls.has(cleanUrl) && !existingSourceExternalIds.has(cleanId)) {
+        existingSourceUrls.add(cleanUrl);
+        existingSourceExternalIds.add(cleanId);
+
+        const newSuggestedSourceId = id();
+        await adminDb.transact([
+          adminDb.tx.sources[newSuggestedSourceId].create({
+            platform: suggested.platform,
+            name: suggested.name,
+            url: suggested.url,
+            externalId: suggested.externalId,
+            status: "pending_review",
+            checkIntervalMinutes: 60,
+            minIntervalMinutes: 15,
+            maxIntervalMinutes: 1440,
+            decayMultiplier: 1.5,
+            consecutiveEmptyScrapes: 0,
+            lastScrapedAt: 0,
+            nextScheduledScanAt: 0,
+            totalPostsScanned: 0,
+            totalIntentsFound: 0,
+            createdAt: now,
+          }),
+        ]);
+      }
+    }
 
     const isDuplicate = intents.some(
       (i) => (i.originalText || "").trim().toLowerCase() === normalizedText

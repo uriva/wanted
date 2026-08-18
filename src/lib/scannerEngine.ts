@@ -7,6 +7,7 @@ import {
   PostContext,
 } from "./intentClassifier";
 import { scheduleNextScanWithUpstash } from "./upstashScheduler";
+import { extractPhoneInfo } from "./phoneUtils";
 
 const SCRAPE_CREATORS_API_KEY =
   process.env.SCRAPE_CREATORS_API_KEY || "4zCp1kzsF1UobT8aQlzgSCgTPZq2";
@@ -76,6 +77,69 @@ function normalizeFacebookAuthorProfileUrl(authorId?: string, rawUrl?: string, f
   return fallbackUrl || "https://facebook.com";
 }
 
+export function decodeFacebookCommentId(idStr?: string): string | null {
+  if (!idStr) return null;
+  const str = String(idStr);
+
+  if (str.startsWith("Y29tbWVud") || /^[A-Za-z0-9+/=]+$/.test(str)) {
+    try {
+      const decoded = Buffer.from(str, "base64").toString("utf-8");
+      if (decoded.includes("comment:") || decoded.includes("_")) {
+        const m = decoded.match(/_(\d+)/) || decoded.match(/comment:(\d+)/);
+        if (m) return m[1];
+      }
+    } catch {}
+  }
+
+  const m = str.match(/_(\d+)$/) || str.match(/comment:?\d*_?(\d+)/);
+  if (m) return m[1];
+  if (/^\d{10,}$/.test(str)) return str;
+  return null;
+}
+
+export function buildDirectCommentUrl(
+  platform: string,
+  postUrl: string,
+  externalCommentId?: string,
+  rawCommentUrl?: string
+): string {
+  if (
+    rawCommentUrl &&
+    rawCommentUrl !== postUrl &&
+    (rawCommentUrl.includes("comment_id") || rawCommentUrl.includes("/comments/"))
+  ) {
+    return rawCommentUrl;
+  }
+
+  const p = (platform || "").toLowerCase();
+  const base = postUrl || rawCommentUrl || "";
+
+  if (p === "facebook" && base) {
+    const commentId = decodeFacebookCommentId(externalCommentId);
+    if (commentId) {
+      try {
+        const u = new URL(base);
+        u.searchParams.set("comment_id", commentId);
+        return u.toString();
+      } catch {
+        const sep = base.includes("?") ? "&" : "?";
+        return `${base}${sep}comment_id=${commentId}`;
+      }
+    }
+  }
+
+  if (p === "reddit" && base) {
+    if (externalCommentId) {
+      const cleanId = externalCommentId.replace(/^t1_/, "");
+      if (cleanId && !base.includes(cleanId)) {
+        return base.endsWith("/") ? `${base}${cleanId}/` : `${base}/${cleanId}/`;
+      }
+    }
+  }
+
+  return rawCommentUrl || base;
+}
+
 function parseFacebookComments(rawComments: any[], parentPostUrl: string, parentPubTime: number): NormalizedComment[] {
   const comments: NormalizedComment[] = [];
   if (!Array.isArray(rawComments)) return comments;
@@ -94,13 +158,21 @@ function parseFacebookComments(rawComments: any[], parentPostUrl: string, parent
 
     const profilePicture = extractFacebookAvatarUrl(author, authorId);
 
+    const rawCommentId = String(c.id || id());
+    const directCommentUrl = buildDirectCommentUrl(
+      "facebook",
+      parentPostUrl,
+      rawCommentId,
+      c.url
+    );
+
     comments.push({
-      externalCommentId: String(c.id || id()),
+      externalCommentId: rawCommentId,
       authorName,
       authorExternalId: authorId,
       authorProfileUrl: normalizeFacebookAuthorProfileUrl(authorId, author.url, parentPostUrl),
       authorAvatarUrl: profilePicture,
-      commentUrl: c.url || parentPostUrl,
+      commentUrl: directCommentUrl,
       text,
       publishedAt: commentPubTime,
     });
@@ -109,12 +181,19 @@ function parseFacebookComments(rawComments: any[], parentPostUrl: string, parent
   return comments;
 }
 
+export interface PostDetailsResult {
+  comments: NormalizedComment[];
+  authorAvatarUrl?: string;
+}
+
 export async function fetchCommentsForPost(
   platform: string,
   postUrl: string,
   postPubTime: number = Date.now()
-): Promise<NormalizedComment[]> {
+): Promise<PostDetailsResult> {
   const comments: NormalizedComment[] = [];
+  let authorAvatarUrl: string | undefined = undefined;
+
   try {
     if (platform === "facebook") {
       const apiUrl = `https://api.scrapecreators.com/v1/facebook/post?url=${encodeURIComponent(postUrl)}`;
@@ -123,8 +202,20 @@ export async function fetchCommentsForPost(
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.success && Array.isArray(data.comments)) {
-          return parseFacebookComments(data.comments, postUrl, postPubTime);
+        if (data.success) {
+          authorAvatarUrl =
+            data.author?.image ||
+            data.author?.profile_picture ||
+            data.author?.profile_picture_depth_0?.uri ||
+            data.author?.profile_picture_url ||
+            undefined;
+
+          if (Array.isArray(data.comments)) {
+            return {
+              comments: parseFacebookComments(data.comments, postUrl, postPubTime),
+              authorAvatarUrl,
+            };
+          }
         }
       }
     } else if (platform === "reddit") {
@@ -157,10 +248,10 @@ export async function fetchCommentsForPost(
       }
     }
   } catch (err) {
-    console.error(`Error fetching comments for ${platform} post (${postUrl}):`, err);
+    console.error(`Error fetching post details/comments for ${platform} post (${postUrl}):`, err);
   }
 
-  return comments;
+  return { comments, authorAvatarUrl };
 }
 
 export async function fetchPostsFromPlatform(
@@ -239,6 +330,13 @@ export async function fetchPostsFromPlatform(
             const comments = parseFacebookComments(rawComments, postUrl, pubTime);
             const authorAvatar = extractFacebookAvatarUrl(author, authorId);
 
+            const authorAvatar =
+              author.image ||
+              author.profile_picture ||
+              author.profile_picture_depth_0?.uri ||
+              author.profile_picture_url ||
+              undefined;
+
             posts.push({
               externalPostId: String(item.id || id()),
               authorName,
@@ -287,15 +385,75 @@ export async function fetchPostsFromPlatform(
   return posts;
 }
 
+export function extractSuggestedSourcesFromText(text?: string): {
+  platform: string;
+  url: string;
+  externalId: string;
+  name: string;
+}[] {
+  if (!text) return [];
+  const results: { platform: string; url: string; externalId: string; name: string }[] = [];
+
+  // 1. WhatsApp Group Invites
+  const waRegex = /(?:https?:\/\/)?(?:chat\.)?whatsapp\.com\/(?:invite\/)?([A-Za-z0-9_\-]{10,})/gi;
+  for (const match of text.matchAll(waRegex)) {
+    const inviteCode = match[1];
+    if (inviteCode) {
+      let name = `WhatsApp Group (${inviteCode.substring(0, 8)}...)`;
+      const contextMatch = text.match(/(?:קהילת|קבוצת|קבוצה|קהילה|group|community)[:\s"״]*([^"״\n\r:]{3,40})/i);
+      if (contextMatch && contextMatch[1] && !contextMatch[1].includes("http")) {
+        name = contextMatch[1].trim();
+      }
+      results.push({
+        platform: "whatsapp",
+        url: `https://chat.whatsapp.com/${inviteCode}`,
+        externalId: inviteCode,
+        name,
+      });
+    }
+  }
+
+  // 2. WhatsApp Channels
+  const waChanRegex = /(?:https?:\/\/)?(?:www\.)?whatsapp\.com\/channel\/([A-Za-z0-9_\-]{10,})/gi;
+  for (const match of text.matchAll(waChanRegex)) {
+    const chanId = match[1];
+    if (chanId) {
+      results.push({
+        platform: "whatsapp",
+        url: `https://whatsapp.com/channel/${chanId}`,
+        externalId: chanId,
+        name: `WhatsApp Channel (${chanId.substring(0, 8)}...)`,
+      });
+    }
+  }
+
+  // 3. Facebook Groups
+  const fbRegex = /(?:https?:\/\/)?(?:www\.|m\.)?facebook\.com\/groups\/([A-Za-z0-9_.\-]+)/gi;
+  for (const match of text.matchAll(fbRegex)) {
+    const rawGroupId = match[1];
+    if (rawGroupId && !["permalink", "posts", "feed", "user"].includes(rawGroupId.toLowerCase())) {
+      const cleanGroupId = rawGroupId.split("/")[0].split("?")[0];
+      results.push({
+        platform: "facebook",
+        url: `https://www.facebook.com/groups/${cleanGroupId}`,
+        externalId: cleanGroupId,
+        name: `Facebook Group (${cleanGroupId})`,
+      });
+    }
+  }
+
+  return results;
+}
+
 export async function scanSource(sourceId: string) {
   // Query source, buyers, and existing intents from InstantDB for strict deduplication
-  const { sources, buyers, intents } = await adminDb.query({
-    sources: { $: { where: { id: sourceId } } },
+  const { sources: allSources, buyers, intents } = await adminDb.query({
+    sources: {},
     buyers: {},
     intents: {},
   });
 
-  const source = sources[0];
+  const source = allSources.find((s) => s.id === sourceId);
   if (!source) {
     throw new Error(`Source not found with ID: ${sourceId}`);
   }
@@ -329,11 +487,15 @@ export async function scanSource(sourceId: string) {
     stagedBuyers.set(`${b.platform}:${b.externalAuthorId}`, b.id);
   }
 
+  const existingSourceUrls = new Set(allSources.map((s) => s.url?.toLowerCase().replace(/\/$/, "")));
+  const existingSourceExternalIds = new Set(allSources.map((s) => s.externalId?.toLowerCase()));
+
   const getOrCreateBuyerId = (
     authorName: string,
     authorExternalId: string,
     profileUrl: string,
-    avatarUrl?: string
+    avatarUrl?: string,
+    contactInfo?: string
   ): string => {
     const key = `${source.platform}:${authorExternalId}`;
     if (stagedBuyers.has(key)) {
@@ -350,6 +512,9 @@ export async function scanSource(sourceId: string) {
       }
       if (profileUrl && (!existingObj?.profileUrl || existingObj?.profileUrl === "#")) {
         updateData.profileUrl = profileUrl;
+      }
+      if (contactInfo && (!existingObj?.contactInfo || existingObj.contactInfo.length < 5)) {
+        updateData.contactInfo = contactInfo;
       }
 
       txs.push(adminDb.tx.buyers[existingId].update(updateData));
@@ -371,6 +536,7 @@ export async function scanSource(sourceId: string) {
         externalAuthorId: authorExternalId,
         profileUrl,
         avatarUrl: resolvedAvatar,
+        contactInfo: contactInfo || undefined,
         totalIntentPosts: 1,
         createdAt: now,
         updatedAt: now,
@@ -381,6 +547,43 @@ export async function scanSource(sourceId: string) {
 
   for (const post of rawPosts) {
     if (!post.originalText || post.originalText.trim().length < 5) continue;
+
+    // Detect and extract any shared WhatsApp group/channel or Facebook group links as suggested sources for review
+    const allTextToScanForLinks = [
+      post.originalText,
+      ...(post.comments || []).map((c) => c.text),
+    ].join(" ");
+
+    const detectedSources = extractSuggestedSourcesFromText(allTextToScanForLinks);
+    for (const suggested of detectedSources) {
+      const cleanUrl = suggested.url.toLowerCase().replace(/\/$/, "");
+      const cleanId = suggested.externalId.toLowerCase();
+      if (!existingSourceUrls.has(cleanUrl) && !existingSourceExternalIds.has(cleanId)) {
+        existingSourceUrls.add(cleanUrl);
+        existingSourceExternalIds.add(cleanId);
+
+        const newSuggestedSourceId = id();
+        txs.push(
+          adminDb.tx.sources[newSuggestedSourceId].create({
+            platform: suggested.platform,
+            name: suggested.name,
+            url: suggested.url,
+            externalId: suggested.externalId,
+            status: "pending_review",
+            checkIntervalMinutes: 60,
+            minIntervalMinutes: 15,
+            maxIntervalMinutes: 1440,
+            decayMultiplier: 1.5,
+            consecutiveEmptyScrapes: 0,
+            lastScrapedAt: 0,
+            nextScheduledScanAt: 0,
+            totalPostsScanned: 0,
+            totalIntentsFound: 0,
+            createdAt: now,
+          })
+        );
+      }
+    }
 
     const normalizedPostText = post.originalText.trim().toLowerCase();
     const isPostAlreadySaved =
@@ -403,14 +606,30 @@ export async function scanSource(sourceId: string) {
       postIntentType = postAnalysis.intentType;
 
       if (postAnalysis.hasIntent) {
+        let authorAvatarUrl = post.authorAvatarUrl;
+        let detailsComments: NormalizedComment[] = post.comments || [];
+
+        // If author avatar or comments are missing (e.g. from Facebook group feed), fetch single post details
+        if (source.platform === "facebook" && (!authorAvatarUrl || detailsComments.length === 0)) {
+          const details = await fetchCommentsForPost(source.platform, post.postUrl, post.publishedAt);
+          if (details.authorAvatarUrl) {
+            authorAvatarUrl = details.authorAvatarUrl;
+          }
+          if (details.comments && details.comments.length > 0) {
+            detailsComments = details.comments;
+          }
+        }
+
         existingPostIds.add(post.externalPostId);
         existingTextHashes.add(normalizedPostText);
 
+        const extractedPhone = extractPhoneInfo(post.originalText);
         const buyerId = getOrCreateBuyerId(
           post.authorName,
           post.authorExternalId,
           post.authorProfileUrl,
-          post.authorAvatarUrl
+          authorAvatarUrl,
+          extractedPhone?.e164
         );
 
         const intentId = id();
@@ -440,6 +659,10 @@ export async function scanSource(sourceId: string) {
         );
 
         newIntentsFound++;
+
+        if (detailsComments.length > 0) {
+          post.comments = detailsComments;
+        }
       }
     }
 
@@ -449,7 +672,8 @@ export async function scanSource(sourceId: string) {
 
       // For Facebook & Reddit: fetch full deep comments if missing or if comments lack avatars/rich data
       if (source.platform === "facebook" || source.platform === "reddit" || comments.length === 0) {
-        const deepComments = await fetchCommentsForPost(source.platform, post.postUrl, post.publishedAt);
+        const details = await fetchCommentsForPost(source.platform, post.postUrl, post.publishedAt);
+        const deepComments = details.comments || [];
         if (deepComments && deepComments.length > 0) {
           const commentMap = new Map<string, NormalizedComment>();
           for (const c of comments) commentMap.set(c.externalCommentId, c);
@@ -467,6 +691,14 @@ export async function scanSource(sourceId: string) {
           }
           comments = Array.from(commentMap.values());
         }
+        if (details.authorAvatarUrl) {
+          getOrCreateBuyerId(
+            post.authorName,
+            post.authorExternalId,
+            post.authorProfileUrl,
+            details.authorAvatarUrl
+          );
+        }
       }
 
       // Filter unhandled comments for this post
@@ -483,16 +715,29 @@ export async function scanSource(sourceId: string) {
       });
 
       if (candidateComments.length > 0) {
+        const isAuthorComment = (c: NormalizedComment) => {
+          if (c.authorExternalId && post.authorExternalId && c.authorExternalId !== "fb_anon") {
+            return c.authorExternalId === post.authorExternalId;
+          }
+          if (c.authorName && post.authorName) {
+            return c.authorName.trim().toLowerCase() === post.authorName.trim().toLowerCase();
+          }
+          return false;
+        };
+
         const postContext: PostContext = {
           text: post.originalText,
           intentType: postIntentType,
           authorName: post.authorName,
+          authorExternalId: post.authorExternalId,
         };
 
         const commentResults = await analyzeBatchCommentsIntent(
           candidateComments.map((c) => ({
             id: c.externalCommentId,
             authorName: c.authorName,
+            authorExternalId: c.authorExternalId,
+            isPostAuthor: isAuthorComment(c),
             text: c.text,
           })),
           postContext
@@ -505,12 +750,22 @@ export async function scanSource(sourceId: string) {
             existingPostIds.add(comment.externalCommentId);
             existingTextHashes.add(normCommentText);
 
+            const commentPhone = extractPhoneInfo(comment.text);
             const commentBuyerId = getOrCreateBuyerId(
               comment.authorName,
               comment.authorExternalId,
               comment.authorProfileUrl,
-              comment.authorAvatarUrl
+              comment.authorAvatarUrl,
+              commentPhone?.e164
             );
+
+            const directCommentUrl =
+              comment.commentUrl ||
+              buildDirectCommentUrl(
+                source.platform,
+                post.postUrl,
+                comment.externalCommentId
+              );
 
             const commentIntentId = id();
             txs.push(
@@ -522,7 +777,7 @@ export async function scanSource(sourceId: string) {
                   originalText: comment.text,
                   translatedText: commentAnalysis.translatedTextEn,
                   platform: source.platform,
-                  postUrl: comment.commentUrl || post.postUrl,
+                  postUrl: directCommentUrl,
                   intentType: commentAnalysis.intentType,
                   category: commentAnalysis.category,
                   budget: commentAnalysis.budget,
@@ -533,6 +788,11 @@ export async function scanSource(sourceId: string) {
                   scrapedAt: now,
                   status: "open",
                   createdAt: now,
+                  isComment: true,
+                  commentUrl: directCommentUrl,
+                  parentPostText: post.originalText,
+                  parentAuthorName: post.authorName,
+                  parentPostUrl: post.postUrl,
                 })
                 .link({ source: sourceId })
                 .link({ buyer: commentBuyerId })

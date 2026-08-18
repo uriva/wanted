@@ -8,7 +8,7 @@ const heebo = Heebo({
 });
 
 export const metadata: Metadata = {
-  title: "WANTED - Social Reverse Marketplace",
+  title: "WANTED",
   description: "Live buyer intent intelligence & social scraper stream",
 };
 

@@ -48,6 +48,11 @@ const _schema = i.schema({
       scrapedAt: i.number().indexed(),
       status: i.string().indexed(), // 'open' | 'matched' | 'archived'
       createdAt: i.number().indexed(),
+      isComment: i.boolean().optional(),
+      commentUrl: i.string().optional(),
+      parentPostText: i.string().optional(),
+      parentAuthorName: i.string().optional(),
+      parentPostUrl: i.string().optional(),
     }),
     scan_logs: i.entity({
       platform: i.string().indexed(),

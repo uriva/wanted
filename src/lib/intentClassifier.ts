@@ -16,6 +16,8 @@ export interface IntentAnalysisResult {
 export interface CommentInput {
   id: string;
   authorName?: string;
+  authorExternalId?: string;
+  isPostAuthor?: boolean;
   text: string;
 }
 
@@ -23,9 +25,19 @@ export interface PostContext {
   text: string;
   intentType: "buy" | "sell" | "none" | string;
   authorName?: string;
+  authorExternalId?: string;
 }
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+
+export function cleanSummaryPhoneNumbers(summary?: string): string {
+  if (!summary) return "";
+  return summary
+    .replace(/\s*\((?:contact:?\s*)?\+?[\d\s-]{8,18}\)/gi, "")
+    .replace(/\s+\+[\d]{9,15}\b/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
 
 export async function analyzePostIntent(text: string): Promise<IntentAnalysisResult> {
   const clean = text.replace(/[\n\r]+/g, " ").trim();
@@ -66,7 +78,7 @@ Respond strictly with a JSON object in this exact format:
 {
   "intentType": "buy" | "sell" | "none",
   "confidenceScore": number,
-  "summary": "1-2 concise sentence summary in the post language or English summarizing what the buyer wants or what the seller is offering"
+  "summary": "1 concise normalized sentence strictly in English stating what the person is looking to buy/hire or what they are offering/selling (e.g. 'Looking to hire a developer to build an autonomous WhatsApp agent with conversation memory')."
 }`;
 
     const res = await fetch(url, {
@@ -235,6 +247,7 @@ ${JSON.stringify(
     index: i,
     id: c.id,
     author: c.authorName || "User",
+    isOriginalPostAuthor: Boolean(c.isPostAuthor),
     text: c.text.replace(/[\n\r]+/g, " "),
   })),
   null,
@@ -242,15 +255,21 @@ ${JSON.stringify(
 )}
 
 CLASSIFICATION RULES & GUIDELINES:
-1. SELLER INTENT ("sell"):
+1. ORIGINAL POST AUTHOR COMMENTING ON THEIR OWN POST ("isOriginalPostAuthor": true):
+   - This commenter IS the original author of the post adding contact info (phone/WhatsApp), pricing, or follow-up details.
+   - Retain the same intentType as the original post (${postContext.intentType.toUpperCase()}).
+   - Do NOT classify the author as a prospective buyer responding to their own post or vice versa.
+   - Summary must state: "Author providing contact details / follow-up information for their <offer/request> (e.g. 'Author providing contact details to sell Claude AI subscriptions')."
+
+2. SELLER INTENT ("sell"):
    - When responding to a BUYER post (e.g. client looking to hire/buy/build an app, agent, bot, or service): The commenter is acting as a service provider, agency, freelancer, developer, or vendor offering their services, solutions, capacity, portfolio, contact details ("call me / דבר איתי", phone numbers, "DM sent / שלחתי בפרטי", "we build this / יש לי סוכן שעושה עבודה דומה"), or pitching to solve the buyer's requirement.
    - When responding to any post: The commenter is pitching or offering their own services/products/solutions.
 
-2. BUYER INTENT ("buy"):
+3. BUYER INTENT ("buy"):
    - When responding to a SELLER post (e.g. vendor offering services/products): The commenter is a prospective buyer/client interested in buying, requesting pricing/quotes ("how much?", "מעוניין", "כמה עולה"), asking for a demo, or asking to be contacted.
    - When responding to a BUYER post: The commenter states that they also need the same service/product ("I need this too", "מחפש גם").
 
-3. NONE ("none"):
+4. NONE ("none"):
    - General banter, opinions, simple compliments/cheerleading ("בהצלחה", "great job!"), tagging someone without offer/pitch, technical debates, or unrelated remarks without buying or selling intent.
 
 Respond strictly with a JSON array matching this exact schema:
@@ -259,7 +278,7 @@ Respond strictly with a JSON array matching this exact schema:
     "id": "comment_id",
     "intentType": "buy" | "sell" | "none",
     "confidenceScore": number,
-    "summary": "1 concise sentence in the language of the post or English explaining what the commenter is offering or requesting in context of the post"
+    "summary": "1 concise normalized sentence strictly in English stating what the commenter is offering or requesting in response to the original post (e.g. 'Offering custom WhatsApp bot development services in response to Tidhar Krimov\\'s request for a WhatsApp AI agent')."
   }
 ]`;
 

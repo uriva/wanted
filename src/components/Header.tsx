@@ -14,9 +14,6 @@ export default function Header() {
             </div>
             <div className="flex items-center space-x-2">
               <h1 className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">WANTED</h1>
-              <span className="px-2 py-0.5 text-[10px] tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-200 dark:border-zinc-700 uppercase">
-                REVERSE MARKETPLACE
-              </span>
             </div>
           </div>
 

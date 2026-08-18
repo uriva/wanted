@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { db } from "@/lib/clientDb";
 import { id } from "@instantdb/react";
 import Header from "@/components/Header";
-import ScanStatusBar from "@/components/ScanStatusBar";
 import BuyersTable from "@/components/BuyersTable";
 import SellersTable from "@/components/SellersTable";
 import SourceScheduler from "@/components/SourceScheduler";
@@ -99,33 +98,6 @@ export default function HomePage() {
     };
   }, [intents, getPostIdFromUrl]);
 
-  // Seed initial sources if empty
-  useEffect(() => {
-    if (!isLoading && data && data.sources.length === 0) {
-      handleSeed();
-    }
-  }, [isLoading, data]);
-
-  const handleSeed = async () => {
-    try {
-      await fetch("/api/seed", { method: "POST" });
-    } catch (err) {
-      console.error("Seed error:", err);
-    }
-  };
-
-  const handleScanSource = async (sourceId: string) => {
-    try {
-      await fetch("/api/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceId }),
-      });
-    } catch (err) {
-      console.error("Single scan error:", err);
-    }
-  };
-
   const handleAddSource = async (newSource: any) => {
     try {
       await db.transact(
@@ -151,9 +123,6 @@ export default function HomePage() {
 
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        {/* Live Scraper Status Bar (Last Scanned & Next Scan Timer) */}
-        <ScanStatusBar sources={activeSources as any} />
-
         {/* Tab Switcher */}
         <div className="flex border-b border-zinc-200 dark:border-zinc-800 mb-6 space-x-1 sm:space-x-4 overflow-x-auto">
           {/* Buyers Tab */}
@@ -247,7 +216,11 @@ export default function HomePage() {
       </main>
 
       {/* Post Intent Detail Modal */}
-      <IntentDetailModal intent={selectedIntent} onClose={handleCloseModal} />
+      <IntentDetailModal
+        intent={selectedIntent}
+        onClose={handleCloseModal}
+        allIntents={intents as any}
+      />
     </div>
   );
 }
