@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, ExternalLink, Link as LinkIcon, Check, MessageSquare, CornerDownRight, Phone } from "lucide-react";
 import { extractPhoneInfo } from "@/lib/phoneUtils";
+import { getSourceDisplayName } from "@/lib/sourceUtils";
 
 interface IntentDetailModalProps {
   intent: any;
@@ -212,7 +213,9 @@ export default function IntentDetailModal({ intent, onClose, allIntents }: Inten
     }
   };
 
+  const sourceInfo = getSourceDisplayName(intent);
   const platformDisplayName = intent.platform === "twitter" ? "X / Twitter" : intent.platform || "Platform";
+  const groupOrPlatformLabel = sourceInfo.groupName || platformDisplayName;
 
   return (
     <div
@@ -280,8 +283,9 @@ export default function IntentDetailModal({ intent, onClose, allIntents }: Inten
               >
                 {buyerName}
               </a>
-              <span className="px-2 py-0.5 text-[10px] font-mono capitalize bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded">
-                {platformDisplayName}
+              <span className="px-2 py-0.5 text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded inline-flex items-center space-x-1">
+                <PlatformLogo platform={intent.platform} className="w-3 h-3 shrink-0" />
+                <span className="max-w-[240px] truncate">{groupOrPlatformLabel}</span>
               </span>
               {phoneInfo && (
                 <a
@@ -315,14 +319,14 @@ export default function IntentDetailModal({ intent, onClose, allIntents }: Inten
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-1.5 text-xs font-mono uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">
                 <CornerDownRight className="w-3.5 h-3.5" />
-                <span>Original Post {parentAuthorName ? `by ${parentAuthorName}` : "being responded to"}</span>
+                <span>Original Post in {groupOrPlatformLabel} {parentAuthorName ? `by ${parentAuthorName}` : "being responded to"}</span>
               </div>
               {mainPostLink && (
                 <a
                   href={mainPostLink}
                   target="_blank"
                   rel="noreferrer"
-                  title={`Open original post on ${platformDisplayName}`}
+                  title={`Open original post in ${groupOrPlatformLabel}`}
                   className="px-2 py-1 rounded-md text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 transition-colors inline-flex items-center space-x-1.5 group cursor-pointer"
                 >
                   <PlatformLogo platform={intent.platform} className="w-3 h-3" />
@@ -351,11 +355,19 @@ export default function IntentDetailModal({ intent, onClose, allIntents }: Inten
                 href={directCommentLink}
                 target="_blank"
                 rel="noreferrer"
-                title={isComment ? `Open this specific comment on ${platformDisplayName}` : `Open post on ${platformDisplayName}`}
+                title={
+                  isComment
+                    ? `Open this comment in ${groupOrPlatformLabel}`
+                    : `Open post in ${groupOrPlatformLabel}`
+                }
                 className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 transition-colors inline-flex items-center space-x-1.5 group cursor-pointer"
               >
                 <PlatformLogo platform={intent.platform} className="w-3.5 h-3.5" />
-                <span>{isComment ? "Open Comment" : "Open Post"}</span>
+                <span className="max-w-[200px] truncate">
+                  {isComment
+                    ? `Open Comment in ${groupOrPlatformLabel}`
+                    : `Open Post in ${groupOrPlatformLabel}`}
+                </span>
                 <ExternalLink className="w-3 h-3 opacity-70 group-hover:opacity-100" />
               </a>
             )}

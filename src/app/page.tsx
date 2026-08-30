@@ -22,6 +22,7 @@ export default function HomePage() {
     intents: {
       buyer: {},
       source: {},
+      thread: {},
       $: { order: { publishedAt: "desc" } },
     },
     scan_logs: {

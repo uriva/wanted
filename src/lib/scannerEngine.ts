@@ -435,6 +435,20 @@ export function extractSuggestedSourcesFromText(text?: string): {
     }
   }
 
+  // 4. Reddit Subreddits
+  const redditRegex = /(?:https?:\/\/)?(?:www\.)?reddit\.com\/r\/([A-Za-z0-9_]+)/gi;
+  for (const match of text.matchAll(redditRegex)) {
+    const sub = match[1];
+    if (sub && !["all", "popular"].includes(sub.toLowerCase())) {
+      results.push({
+        platform: "reddit",
+        url: `https://reddit.com/r/${sub}`,
+        externalId: sub,
+        name: `r/${sub}`,
+      });
+    }
+  }
+
   return results;
 }
 

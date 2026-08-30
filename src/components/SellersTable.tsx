@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Search, AlertCircle, Clock, Phone, ExternalLink } from "lucide-react";
 import { extractPhoneInfo, cleanSummaryPhoneNumbers } from "@/lib/phoneUtils";
+import { getSourceDisplayName } from "@/lib/sourceUtils";
 
 interface IntentItem {
   id: string;
@@ -22,6 +23,17 @@ interface IntentItem {
   parentAuthorName?: string;
   parentPostUrl?: string;
   matchedKeywords?: string;
+  source?: {
+    id?: string;
+    name?: string;
+    platform?: string;
+    url?: string;
+    externalId?: string;
+  };
+  thread?: {
+    id?: string;
+    chatName?: string;
+  };
   buyer?: {
     id: string;
     name: string;
@@ -245,6 +257,8 @@ export default function SellersTable({ intents, onSelectIntent }: SellersTablePr
     const text = item.originalText || item.title || "";
     const summary = item.summary || "";
     const name = item.buyer?.name || "";
+    const sourceInfo = getSourceDisplayName(item);
+    const groupName = sourceInfo.groupName || "";
     const phoneInfo = extractPhoneInfo(`${text} ${summary}`, item.buyer?.contactInfo);
     const term = searchTerm.toLowerCase();
 
@@ -252,6 +266,7 @@ export default function SellersTable({ intents, onSelectIntent }: SellersTablePr
       summary.toLowerCase().includes(term) ||
       text.toLowerCase().includes(term) ||
       name.toLowerCase().includes(term) ||
+      groupName.toLowerCase().includes(term) ||
       (phoneInfo && (
         phoneInfo.display.toLowerCase().includes(term) ||
         phoneInfo.raw.toLowerCase().includes(term) ||
@@ -310,6 +325,7 @@ export default function SellersTable({ intents, onSelectIntent }: SellersTablePr
                 );
                 const fbProfileUrl = item.platform === "facebook" ? getFacebookProfileUrl(item.buyer) : null;
                 const directLink = getDirectCommentLink(item);
+                const sourceInfo = getSourceDisplayName(item);
                 const rawSummary = item.summary || item.translatedText || item.title || item.originalText;
                 const normalizedOneLiner = cleanSummaryPhoneNumbers(rawSummary);
 
@@ -377,21 +393,36 @@ export default function SellersTable({ intents, onSelectIntent }: SellersTablePr
                             </a>
                           )}
 
-                          {/* Direct Comment / Post Link Chip */}
-                          {directLink && (
+                          {/* Subreddit / Group / Post Link Chip */}
+                          {directLink ? (
                             <a
                               href={directLink}
                               target="_blank"
                               rel="noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              title={isComment ? "Open comment on source platform" : "Open post on source platform"}
+                              title={
+                                isComment
+                                  ? `Open comment in ${sourceInfo.groupName}`
+                                  : `Open post in ${sourceInfo.groupName}`
+                              }
                               className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors group/chip cursor-pointer"
                             >
                               <PlatformLogo platform={item.platform} className="w-3 h-3 shrink-0" />
-                              <span>{isComment ? "Comment Link" : "Post Link"}</span>
+                              <span className="max-w-[220px] truncate">
+                                {sourceInfo.groupName}
+                                {isComment ? " (Comment)" : ""}
+                              </span>
                               <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover/chip:opacity-100" />
                             </a>
-                          )}
+                          ) : sourceInfo.groupName ? (
+                            <span
+                              title={sourceInfo.groupName}
+                              className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
+                            >
+                              <PlatformLogo platform={item.platform} className="w-3 h-3 shrink-0" />
+                              <span className="max-w-[220px] truncate">{sourceInfo.groupName}</span>
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </td>
