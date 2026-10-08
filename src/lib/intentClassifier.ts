@@ -1,3 +1,5 @@
+import { geminiGenText, injectGeminiToken } from "@jsr/uri__ai-utils";
+
 export interface IntentAnalysisResult {
   hasIntent: boolean;
   intentType: "buy" | "sell" | "none";
@@ -63,9 +65,6 @@ export async function analyzePostIntent(
   }
 
   try {
-    const key = GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${key}`;
-
     const contextSection = contextTranscript && contextTranscript.trim()
       ? `\nCONVERSATION THREAD CONTEXT (Preceding messages in this group discussion):\n${contextTranscript.trim()}\n`
       : "";
@@ -88,46 +87,38 @@ Respond strictly with a JSON object in this exact format:
   "summary": "1 concise normalized sentence strictly in English stating what the person is looking to buy/hire or what they are offering/selling in context of the discussion (e.g. 'Offering custom WhatsApp bot development services in response to project inquiry')."
 }`;
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
-    });
+    const rawText = await injectGeminiToken(GEMINI_API_KEY)(async () => {
+      return await (geminiGenText as any)({ tier: "flash" }, prompt);
+    })();
 
-    if (res.ok) {
-      const data = await res.json();
-      const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawJson) {
-        const parsed = JSON.parse(rawJson);
-        const intentType: "buy" | "sell" | "none" =
-          parsed.intentType === "buy" || parsed.intentType === "sell" ? parsed.intentType : "none";
-        const hasIntent = intentType !== "none";
+    if (rawText) {
+      const jsonStr = rawText.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
+      const parsed = JSON.parse(jsonStr);
+      const intentType: "buy" | "sell" | "none" =
+        parsed.intentType === "buy" || parsed.intentType === "sell" ? parsed.intentType : "none";
+      const hasIntent = intentType !== "none";
 
-        return {
-          hasIntent,
-          intentType,
-          isBuyerIntent: intentType === "buy",
-          isSellerIntent: intentType === "sell",
-          confidenceScore:
-            typeof parsed.confidenceScore === "number"
-              ? parsed.confidenceScore
-              : hasIntent
-              ? 0.95
-              : 0.1,
-          category: "Software & AI",
-          titleEn: title,
-          summaryEn: parsed.summary || clean,
-          translatedTextEn: text,
-          urgency: "medium",
-          matchedKeywords: ["gemini-3.7-flash"],
-        };
-      }
+      return {
+        hasIntent,
+        intentType,
+        isBuyerIntent: intentType === "buy",
+        isSellerIntent: intentType === "sell",
+        confidenceScore:
+          typeof parsed.confidenceScore === "number"
+            ? parsed.confidenceScore
+            : hasIntent
+            ? 0.95
+            : 0.1,
+        category: "Software & AI",
+        titleEn: title,
+        summaryEn: parsed.summary || clean,
+        translatedTextEn: text,
+        urgency: "medium",
+        matchedKeywords: ["ai-utils"],
+      };
     }
   } catch (err) {
-    console.error("Gemini API call failed, falling back to heuristic:", err);
+    console.error("ai-utils call failed, falling back to heuristic:", err);
   }
 
   // Heuristic fallback if API call fails
@@ -236,9 +227,6 @@ export async function analyzeBatchCommentsIntent(
   if (validComments.length === 0) return results;
 
   try {
-    const key = GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${key}`;
-
     const prompt = `You are an expert Social Marketplace Intent Classifier.
 You are analyzing comments on a social media post where the original post had a confirmed BUYER or SELLER commercial intent.
 Use the context of the original post to identify whether each comment expresses BUYER intent, SELLER (Service Provider / Vendor / Freelancer) intent, or NEITHER.
@@ -289,20 +277,13 @@ Respond strictly with a JSON array matching this exact schema:
   }
 ]`;
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
-    });
+    const rawText = await injectGeminiToken(GEMINI_API_KEY)(async () => {
+      return await (geminiGenText as any)({ tier: "flash" }, prompt);
+    })();
 
-    if (res.ok) {
-      const data = await res.json();
-      const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawJson) {
-        const parsedList = JSON.parse(rawJson);
+    if (rawText) {
+      const jsonStr = rawText.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
+      const parsedList = JSON.parse(jsonStr);
         if (Array.isArray(parsedList)) {
           for (const item of parsedList) {
             const comment = validComments.find((c) => c.id === item.id) || validComments[item.index];
@@ -329,15 +310,14 @@ Respond strictly with a JSON array matching this exact schema:
                 summaryEn: item.summary || clean,
                 translatedTextEn: comment.text,
                 urgency: "medium",
-                matchedKeywords: ["gemini-comment-classifier"],
+                matchedKeywords: ["ai-utils"],
               });
             }
           }
         }
       }
-    }
   } catch (err) {
-    console.error("Gemini batch comment classification failed, applying heuristic fallback:", err);
+    console.error("ai-utils batch comment classification failed, applying heuristic fallback:", err);
   }
 
   // Fallback for any comments not classified yet
