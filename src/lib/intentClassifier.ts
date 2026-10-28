@@ -30,7 +30,7 @@ export interface PostContext {
   authorExternalId?: string;
 }
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const getGeminiApiKey = () => process.env.GEMINI_API_KEY || "";
 
 export function cleanSummaryPhoneNumbers(summary?: string): string {
   if (!summary) return "";
@@ -87,7 +87,7 @@ Respond strictly with a JSON object in this exact format:
   "summary": "1 concise normalized sentence strictly in English stating what the person is looking to buy/hire or what they are offering/selling in context of the discussion (e.g. 'Offering custom WhatsApp bot development services in response to project inquiry')."
 }`;
 
-    const rawText = await injectGeminiToken(GEMINI_API_KEY)(async () => {
+    const rawText = await injectGeminiToken(getGeminiApiKey())(async () => {
       return await (geminiGenText as any)({ tier: "flash" }, prompt);
     })();
 
@@ -277,7 +277,7 @@ Respond strictly with a JSON array matching this exact schema:
   }
 ]`;
 
-    const rawText = await injectGeminiToken(GEMINI_API_KEY)(async () => {
+    const rawText = await injectGeminiToken(getGeminiApiKey())(async () => {
       return await (geminiGenText as any)({ tier: "flash" }, prompt);
     })();
 

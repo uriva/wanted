@@ -1,41 +1,7 @@
 {
-  "deploy": {
-    "org": "uriva",
-    "app": "wanted"
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "build": "deno run -A scripts/buildWorker.ts",
+    "deploy": "npx wrangler deploy"
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,12 +1,11 @@
 import { Client } from "@upstash/qstash";
 
-const QSTASH_TOKEN = process.env.QSTASH_TOKEN || "eyJVc2VySUQiOiJhMTUzNzYxZS1jMGIyLTQ0OTMtOWQxZS04OWE3Yjc1OWY5ZGQiLCJQYXNzd29yZCI6IjI0OWE2ZGIxZjFjZDRkZTU5NzExNDBiOWMyMWRiMDdkIn0=";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://wanted.uriva.deno.net";
-
 export async function scheduleNextScanWithUpstash(sourceId: string, delayMinutes: number) {
   try {
-    const qstash = new Client({ token: QSTASH_TOKEN });
-    const targetUrl = `${APP_URL}/api/scan`;
+    const token = process.env.QSTASH_TOKEN || "eyJVc2VySUQiOiJhMTUzNzYxZS1jMGIyLTQ0OTMtOWQxZS04OWE3Yjc1OWY5ZGQiLCJQYXNzd29yZCI6IjI0OWE2ZGIxZjFjZDRkZTU5NzExNDBiOWMyMWRiMDdkIn0=";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://wanted.uriv.me";
+    const qstash = new Client({ token });
+    const targetUrl = `${appUrl}/api/scan`;
 
     // QStash supports delay in seconds
     const delaySeconds = Math.max(10, Math.round(delayMinutes * 60));
